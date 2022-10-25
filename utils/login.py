@@ -2,9 +2,9 @@ import json
 import requests
 import asyncio
 import logging
-import threading
 import sqlite3
 from config import *
+from utils.commands import *
 from showdown.utils import name_to_id
 
 logging.basicConfig(
@@ -21,6 +21,7 @@ class user():
         self.loginDone = False
         self.msg = None
         self.websocket = websocket
+        self.questions = {}
 
     async def login(self):
         while True:
@@ -39,8 +40,12 @@ class user():
         msgSplited = self.msg.split("|")
         if len(msgSplited) >= 4:
             if msgSplited[1] == "pm":
+                sender = name_to_id(msgSplited[2])
                 content = msgSplited[4]
-                
+                if sender not in self.questions:
+                    question: commands = commands(sender, self.websocket, file, cursor)
+                    self.questions[sender] = question
+                self.questions[sender].splitAll(content)
 
     def wait(self):
         asyncio.run(self.timeLimit())
