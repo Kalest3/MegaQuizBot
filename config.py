@@ -6,3 +6,4 @@ with open('config.json') as json_file:
     username = str(username)
     password = jsondata['password']
     room = jsondata['room']
+    prefix = jsondata['prefix']

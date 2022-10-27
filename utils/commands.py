@@ -2,7 +2,7 @@ import asyncio
 import threading
 
 from showdown.utils import name_to_id
-from config import username
+from config import username, prefix
 
 class commands():
     def __init__(self, sender, websocket, db, cursor):
@@ -10,12 +10,13 @@ class commands():
         self.sender = sender
         self.db = db
         self.cursor = cursor
-        self.room = ''
         self.currentQuestion = False
+        self.questionFinished = False
         self.alternativesNumber = 0
         self.timer = 15
         self.alternatives = []
         self.commandParams = []
+        self.room = ''
         self.answer = ''
         self.html = ''
         self.content = ''
@@ -34,7 +35,7 @@ class commands():
         if self.command in self.commands:
             self.commands[self.command]()
 
-    def makequestion(self):
+    async def makequestion(self):
         self.room = self.commandParams[-1].strip()
         question = self.commandParams[0]
         self.html += f'<div class="infobox"><center><font size="4">{question}</font><br><br><table width="100%" frame="box" rules="all" cellpadding="10"><tbody>'
@@ -42,8 +43,10 @@ class commands():
         self.cursor.execute(f"""CREATE TABLE IF NOT EXISTS {self.room} (
             user TEXT PRIMARY KEY,
             points INTEGER)""")
+        
+        await self.websocket.send(f"|/pm {self.sender}, Questão feita! Agora, para adicionar alternativas, digite {prefix}add (alternativa).")
 
-    def addalternative(self):
+    async def addalternative(self):
         alternative = self.commandParams[0]
         if self.alternativesNumber % 2 == 0:
             self.html += f'<tr><td style="width: 50.00%"><center><button name="send" value="/w {username},respond {alternative}, {self.room}" style=background-color:transparent;border:none;><font color="#cc0000" size="3"><b>{alternative}</b></font></button></center>'
@@ -52,10 +55,14 @@ class commands():
         self.alternativesNumber += 1
         self.alternatives.append(alternative)
 
-    def defanswer(self):
+        await self.websocket.send(f"|/pm {self.sender}, Alternativa feita! Se quiser colocar alguma alternativa como a correta, digite {prefix}danswer (alternativa).")
+
+    async def defanswer(self):
         alternative = self.commandParams[0]
         if alternative in self.alternatives:
             self.answer = alternative
+        
+        await self.websocket.send(f"|/pm {self.sender}, A alternativa {alternative} foi configurada como a correta.")
 
     async def send(self):
         self.html += "</tbody></table></center></div>"
@@ -72,7 +79,11 @@ class commands():
 
     async def leaderboard(self):
         self.cursor.execute(f"SELECT * FROM {self.room}")
-        lb = self.cursor.fetchall()
+        lb = ''
+        for data in self.cursor.fetchall():
+            user = data[0]
+            points = data[1]
+            lb += f"{user}: {points}\n"
         await self.websocket.send(f"{self.room}|!code {lb}")
 
     def addpoints(self, newPoints):
@@ -92,9 +103,13 @@ class commands():
 
     def clearpoints(self):
         self.cursor.execute("DELETE * FROM (?)", (self.room,))
+    
+    async def postRound(self):
+        
 
     def timeLimit(self):
         self.currentQuestion = False
+        self.questionFinished = True
 
     def defTimer(self):
         time = self.commandParams[0]

@@ -46,9 +46,3 @@ class user():
                     question: commands = commands(sender, self.websocket, file, cursor)
                     self.questions[sender] = question
                 self.questions[sender].splitAll(content)
-
-    def wait(self):
-        asyncio.run(self.timeLimit())
-    
-    async def timeLimit(self):
-        await self.websocket.send(f"{room}|/wall ACABOU O TEMPO")
