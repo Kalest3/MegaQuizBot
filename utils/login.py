@@ -11,7 +11,7 @@ logging.basicConfig(
         level=logging.DEBUG,
         )
 
-file = sqlite3.connect("leaderboard.db")
+file = sqlite3.connect("leaderboard.db", check_same_thread=False)
 cursor = file.cursor()
 
 

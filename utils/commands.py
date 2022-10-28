@@ -16,6 +16,7 @@ class commands():
         self.timer = 15
         self.alternatives = []
         self.commandParams = []
+        self.usersPointers = {}
         self.room = ''
         self.roomLB = ''
         self.answer = ''
@@ -40,6 +41,9 @@ class commands():
         self.commandParams = self.content.replace(f"{prefix}{self.command}", "").strip().split(",")
         if self.command in self.commands:
             self.commands[self.command]()
+
+    def respondRoom(self, message):
+        asyncio.run(self.websocket.send(f"{self.room}|{message}"))
 
     async def makequestion(self):
         self.room = self.commandParams[-1].strip()
@@ -96,6 +100,10 @@ class commands():
                 answer, room = name_to_id(self.commandParams[0]), name_to_id(self.commandParams[1])
                 if answer == name_to_id(self.answer) and room == self.room:
                     self.addpoints(1)
+                    if self.sender not in self.usersPointers:
+                        self.usersPointers[self.sender] = 1
+                    else:
+                        self.usersPointers[self.sender] += 1
 
     async def leaderboard(self):
         self.cursor.execute(f"SELECT * FROM {self.roomLB}")
@@ -132,6 +140,16 @@ class commands():
         self.currentQuestion = False
         self.questionFinished = True
         await self.websocket.send(f"{self.room}|/wall ACABOU O TEMPO!")
+        await self.postQuestion()
+    
+    async def postQuestion(self):
+        threads = []
+        threads.append(threading.Timer(5, self.respondRoom, args=["E a resposta era..."]))
+        threads.append(threading.Timer(10, self.respondRoom, args=[f"{self.answer}!"]))
+        threads.append(threading.Timer(20, self.respondRoom, args=[f"Pontuadores: {self.usersPointers}"]))
+        threads.append(threading.Timer(30, lambda: asyncio.run(self.leaderboard())))
+        for thread in threads:
+            thread.start()
 
     async def defTimer(self):
         time: str = self.commandParams[0]
