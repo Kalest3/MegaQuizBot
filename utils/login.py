@@ -1,6 +1,5 @@
 import json
 import requests
-import asyncio
 import logging
 import sqlite3
 from config import *
@@ -42,7 +41,14 @@ class user():
             if msgSplited[1] == "pm":
                 sender = name_to_id(msgSplited[2])
                 content = msgSplited[4]
-                if sender not in self.questions:
-                    question: commands = commands(sender, self.websocket, file, cursor)
-                    self.questions[sender] = question
-                self.questions[sender].splitAll(content)
+                if content[0] == prefix:
+                    if sender not in self.questions:
+                        question: commands = commands(sender, self.websocket, file, cursor)
+                        self.questions[sender] = question
+                        self.questions[sender].owner = sender
+                    self.questions[sender].splitAll(content)
+        
+        for owner in self.questions.copy():
+            question = self.questions[owner]
+            if question.questionFinished:
+                self.questions.pop(owner)

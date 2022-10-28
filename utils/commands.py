@@ -17,33 +17,52 @@ class commands():
         self.alternatives = []
         self.commandParams = []
         self.room = ''
+        self.roomLB = ''
         self.answer = ''
         self.html = ''
         self.content = ''
 
+        mq, add, defanswer, send, lb, addpoints, clearpoints, deftimer = lambda : asyncio.create_task(self.makequestion()), \
+            lambda : asyncio.create_task(self.addalternative()), lambda : asyncio.create_task(self.defanswer()), lambda : asyncio.create_task(self.send()), lambda : asyncio.create_task(self.leaderboard()), \
+                lambda : asyncio.create_task(self.addpoints()), lambda : asyncio.create_task(self.clearpoints()), \
+                    lambda : asyncio.create_task(self.defTimer())
 
         self.commands = {
-            'mq': self.makequestion, 'makequestion': self.makequestion, 'makeq': self.makequestion,
-            'add': self.addalternative, 'danswer': self.defanswer, 'send': lambda : asyncio.gather(self.send()),
-            'respond': self.checkUserAnswer, 'deftimer': self.defTimer, 'lb': lambda : asyncio.gather(self.leaderboard())
+            'mq': mq, 'makequestion': mq, 'makeq': mq,
+            'add': add, 'danswer': defanswer, 'send': send,
+            'respond': self.checkUserAnswer, 'deftimer': deftimer, 'lb': lb,
+            'addpoints': addpoints, 'clearpoints': clearpoints,
         }
     
     def splitAll(self, content):
         self.content = content
-        self.command = self.content.split(" ")[0].strip()
-        self.commandParams = self.content.replace(self.command, "").strip().split(",")
+        self.command = self.content.split(" ")[0].strip()[1:]
+        self.commandParams = self.content.replace(f"{prefix}{self.command}", "").strip().split(",")
         if self.command in self.commands:
             self.commands[self.command]()
 
     async def makequestion(self):
         self.room = self.commandParams[-1].strip()
+        self.roomLB = f"{self.room}lb"
         question = self.commandParams[0]
         self.html += f'<div class="infobox"><center><font size="4">{question}</font><br><br><table width="100%" frame="box" rules="all" cellpadding="10"><tbody>'
 
-        self.cursor.execute(f"""CREATE TABLE IF NOT EXISTS {self.room} (
+        self.cursor.execute(f"""CREATE TABLE IF NOT EXISTS rooms (
+            roomID TEXT PRIMARY KEY,
+            timer FLOAT)""")
+
+        self.cursor.execute(f"""CREATE TABLE IF NOT EXISTS {self.roomLB} (
             user TEXT PRIMARY KEY,
             points INTEGER)""")
         
+        self.cursor.execute(f"""SELECT timer FROM rooms WHERE roomID = "{self.room}"
+        """)
+
+        timer = self.cursor.fetchall()
+
+        if timer:
+            self.timer = timer[0][0]
+
         await self.websocket.send(f"|/pm {self.sender}, Questão feita! Agora, para adicionar alternativas, digite {prefix}add (alternativa).")
 
     async def addalternative(self):
@@ -68,17 +87,18 @@ class commands():
         self.html += "</tbody></table></center></div>"
         await self.websocket.send(f"{self.room}|/addhtmlbox {self.html}")
         self.currentQuestion = True
-        timer = threading.Timer(self.timer, self.timeLimit)
+        timer = threading.Timer(self.timer, lambda: asyncio.run(self.timeLimit()))
         timer.start()
 
     def checkUserAnswer(self):
         if self.currentQuestion:
-            answer, room = name_to_id(self.commandParams[0]), name_to_id(self.commandParams[1])
-            if answer == name_to_id(self.answer) and room == self.room:
-                self.addpoints(1)
+            if len(self.commandParams) >= 2:
+                answer, room = name_to_id(self.commandParams[0]), name_to_id(self.commandParams[1])
+                if answer == name_to_id(self.answer) and room == self.room:
+                    self.addpoints(1)
 
     async def leaderboard(self):
-        self.cursor.execute(f"SELECT * FROM {self.room}")
+        self.cursor.execute(f"SELECT * FROM {self.roomLB}")
         lb = ''
         for data in self.cursor.fetchall():
             user = data[0]
@@ -86,31 +106,50 @@ class commands():
             lb += f"{user}: {points}\n"
         await self.websocket.send(f"{self.room}|!code {lb}")
 
-    def addpoints(self, newPoints):
+    async def addpoints(self, newPoints):
         self.cursor.execute(f"""
-        SELECT user FROM {self.room} WHERE user = "{self.sender}";
+        SELECT user FROM {self.roomLB} WHERE user = "{self.sender}";
         """)
 
         user = self.cursor.fetchall()
 
         if user:
-            points = self.cursor.execute("SELECT points FROM (?) WHERE user = (?)", (self.room, user))
-            self.cursor.execute("""UPDATE (?) SET points = (?) WHERE user = (?)""", (self.room, newPoints + points, self.user,))
+            points = self.cursor.execute("SELECT points FROM (?) WHERE user = (?)", (self.roomLB, user))
+            self.cursor.execute("""UPDATE (?) SET points = (?) WHERE user = (?)""", (self.roomLB, newPoints + points, self.user,))
         else:
-            self.cursor.execute(f"""INSERT INTO {self.room} (user, points) VALUES (?,?)""", (self.sender, newPoints))
+            self.cursor.execute(f"""INSERT INTO {self.roomLB} (user, points) VALUES (?,?)""", (self.sender, newPoints))
 
         self.db.commit()
 
-    def clearpoints(self):
-        self.cursor.execute("DELETE * FROM (?)", (self.room,))
-    
-    async def postRound(self):
-        
+        await self.websocket.send(f"|/pm {self.sender}, Pontos adicionados!")
 
-    def timeLimit(self):
+    async def clearpoints(self):
+        self.room = self.commandParams[0].strip()
+        self.cursor.execute("DELETE * FROM (?)", (self.room))
+        await self.websocket.send(f"|/pm {self.sender}, Pontos da sala limpos!")
+
+    async def timeLimit(self):
         self.currentQuestion = False
         self.questionFinished = True
+        await self.websocket.send(f"{self.room}|/wall ACABOU O TEMPO!")
 
-    def defTimer(self):
-        time = self.commandParams[0]
-        self.timer = time
+    async def defTimer(self):
+        time: str = self.commandParams[0]
+        if time.isdigit():
+            self.timer = time
+            self.cursor.execute(f"""
+            SELECT roomID FROM rooms WHERE roomID = {self.room};
+            """)
+
+            room = self.cursor.fetchall()
+
+            if room:
+                self.cursor.execute("""UPDATE rooms SET timer = (?) WHERE roomID = (?)""", (self.timer, self.room,))
+            else:
+                self.cursor.execute(f"""INSERT INTO rooms (roomID, timer) VALUES (?,?)""", (self.room, self.timer))
+
+            self.db.commit()
+
+            await self.websocket.send(f"|/pm {self.sender}, O tempo foi alterado para {time} segundos!")
+        else:
+            await self.websocket.send(f"|/pm {self.sender}, Digite um tempo válido!")
