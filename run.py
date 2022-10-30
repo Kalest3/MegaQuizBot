@@ -4,6 +4,8 @@ from utils.login import user
 
 uri = 'ws://localhost:8000/showdown/websocket'
 
+
+
 async def run():
     """Connect the script to Pokémon Showdown
     """ 
