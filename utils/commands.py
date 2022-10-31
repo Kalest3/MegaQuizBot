@@ -2,14 +2,15 @@ import asyncio
 import threading
 
 from showdown.utils import name_to_id
-from config import username, prefix, room
+from config import username, prefix, rooms, trusted
 
 class commands():
-    def __init__(self, sender, websocket, db, cursor):
+    def __init__(self, sender, websocket, db, cursor, owner):
         self.websocket = websocket
         self.sender = sender
         self.db = db
         self.cursor = cursor
+        self.owner = owner
         self.currentQuestion = False
         self.questionFinished = False
         self.alternativesNumber = 0
@@ -35,6 +36,9 @@ class commands():
             'respond': respond, 'deftimer': deftimer, 'lb': lb,
             'addpoints': addpoints, 'clearpoints': clearpoints,
         }
+
+        timeToFinish = threading.Timer(10 *  60, self.finishQuestion)
+        timeToFinish.start()
     
     def splitAll(self, content):
         self.content = content
@@ -59,8 +63,12 @@ class commands():
         return asyncio.gather(self.websocket.send(f"|/pm {user}, {message}"))
 
     async def makequestion(self):
-        self.room = self.commandParams[-1].strip()
-        if self.room not in room:
+        if self.sender not in trusted:
+            self.questionFinished = True
+            return self.respondPM(self.sender, "Você não tem permissão para executar este comando.")
+        self.room = name_to_id(self.commandParams[-1])
+
+        if self.room not in rooms:
             self.questionFinished = True
             return self.respondPM(self.sender, "Room não presente dentre as que o bot está.")
 
@@ -88,6 +96,9 @@ class commands():
         self.respondPM(self.sender, f"Questão feita! Agora, para adicionar alternativas, digite {prefix}add (alternativa).")
 
     async def addalternative(self):
+        if not self.html:
+            return self.respondPM(self.sender, "Nenhuma questão foi definida.")
+
         alternative = self.commandParams[0]
         if self.alternativesNumber % 2 == 0:
             self.html += f'<tr><td style="width: 50.00%"><center><button name="send" value="/w {username},{prefix}respond {alternative}, {self.room}" style=background-color:transparent;border:none;><font color="#cc0000" size="3"><b>{alternative}</b></font></button></center>'
@@ -102,8 +113,11 @@ class commands():
         alternative = self.commandParams[0]
         if alternative in self.alternatives:
             self.answer = alternative
-        
-        self.respondPM(self.sender, f"A alternativa {alternative} foi configurada como a correta.")
+            self.respondPM(self.sender, f"A alternativa {alternative} foi configurada como a correta.")
+        elif not self.html:
+            return self.respondPM(self.sender, "Nenhuma questão foi definida.")
+        elif alternative not in self.alternatives:
+            return self.respondPM(self.sender, "A alternativa indicada não foi definida.")
 
     async def send(self):
         self.html += "</tbody></table></center></div>"
@@ -168,15 +182,16 @@ class commands():
         user = self.cursor.fetchall()
 
         if user:
-            points = self.cursor.execute("SELECT points FROM (?) WHERE user = (?)", (self.roomLB, user))
-            self.cursor.execute("""UPDATE (?) SET points = (?) WHERE user = (?)""", (self.roomLB, newPoints + points, self.user,))
+            points = self.cursor.execute(f"""SELECT points FROM {self.roomLB} WHERE user = "{user}"
+            """)
+            self.cursor.execute(f"""UPDATE {self.roomLB} SET points = {newPoints + points} WHERE user = {user}""")
         else:
             self.cursor.execute(f"""INSERT INTO {self.roomLB} (user, points) VALUES (?,?)""", (self.sender, newPoints))
 
         self.db.commit()
 
     async def clearpoints(self):
-        self.room = self.commandParams[0].strip()
+        self.room = name_to_id(self.commandParams[0])
         self.cursor.execute("DELETE * FROM (?)", (self.room))
         self.respondPM(self.sender, "Pontos da sala limpos!")
     
@@ -188,3 +203,7 @@ class commands():
             points = data[1]
             lb += f"{user}: {points}\n"
         self.respondRoom(f"!code Leaderboard:\n{lb}")
+    
+    def finishQuestion(self):
+        self.questionFinished = True
+        self.respondPM(self.owner, "Acabou o prazo para formalizar a questão.")

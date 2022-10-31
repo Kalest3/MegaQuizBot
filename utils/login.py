@@ -30,7 +30,9 @@ class user():
                 postlogin = requests.post('https://play.pokemonshowdown.com/~~showdown/action.php', data={'act':'login','name':username,'pass':password,'challstr':challstr})
                 assertion = json.loads(postlogin.text[1:])["assertion"]
                 await self.websocket.send(f'|/trn {username},0,{assertion}')
-                await self.websocket.send(f"|/j {room}")
+                await self.websocket.send(f'|/avatar {avatar}')
+                for room in rooms:
+                    await self.websocket.send(f'|/join {room}')
                 self.loginDone = True
             if self.loginDone:
                 await self.on_login()
@@ -43,9 +45,8 @@ class user():
                 content = msgSplited[4]
                 if content[0] == prefix:
                     if sender not in self.questions:
-                        question: commands = commands(sender, self.websocket, file, cursor)
+                        question: commands = commands(sender, self.websocket, file, cursor, sender)
                         self.questions[sender] = question
-                        self.questions[sender].owner = sender
                     self.questions[sender].splitAll(content)
         
         for owner in self.questions.copy():
