@@ -22,7 +22,6 @@ class commands():
         self.roomLB = ''
         self.answer = ''
         self.html = ''
-        self.content = ''
 
         mq, add, defanswer, send, respond, lb, addpoints, clearpoints, deftimer = lambda : asyncio.create_task(self.makequestion()), \
             lambda : asyncio.create_task(self.addalternative()), lambda : asyncio.create_task(self.defanswer()), \
@@ -39,11 +38,10 @@ class commands():
 
         timeToFinish = threading.Timer(10 *  60, self.finishQuestion)
         timeToFinish.start()
-    
-    def splitAll(self, content):
-        self.content = content
-        self.command = self.content.split(" ")[0].strip()[1:]
-        self.commandParams = self.content.replace(f"{prefix}{self.command}", "").strip().split(",")
+
+    def splitAll(self, command, commandParams):
+        self.command = command
+        self.commandParams = commandParams
         if self.command in self.commands:
             self.commands[self.command]()
 
@@ -184,7 +182,8 @@ class commands():
         if user:
             points = self.cursor.execute(f"""SELECT points FROM {self.roomLB} WHERE user = "{user}"
             """)
-            self.cursor.execute(f"""UPDATE {self.roomLB} SET points = {newPoints + points} WHERE user = {user}""")
+            points += newPoints
+            self.cursor.execute(f"""UPDATE {self.roomLB} SET points = "{points}" WHERE user = {user}""")
         else:
             self.cursor.execute(f"""INSERT INTO {self.roomLB} (user, points) VALUES (?,?)""", (self.sender, newPoints))
 

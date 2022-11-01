@@ -21,6 +21,14 @@ class user():
         self.msg = None
         self.websocket = websocket
         self.questions = {}
+        self.questionsRoom = {}
+        self.commandsHost = [
+            'mq', 'makequestion', 'makeq',
+            'add', 'danswer', 'send',
+            'deftimer', 'addpoints', 'clearpoints'
+        ]
+        self.commandsPlayer = ['respond',]
+        self.globalCommands = []
 
     async def login(self):
         while True:
@@ -44,12 +52,27 @@ class user():
                 sender = name_to_id(msgSplited[2])
                 content = msgSplited[4]
                 if content[0] == prefix:
-                    if sender not in self.questions:
-                        question: commands = commands(sender, self.websocket, file, cursor, sender)
-                        self.questions[sender] = question
-                    self.questions[sender].splitAll(content)
+                    command = content.split(" ")[0].strip()[1:]
+                    commandParams = content.replace(f"{prefix}{command}", "").strip().split(",")
+                    if command in self.commandsHost:
+                        if sender not in self.questions:
+                            question: commands = commands(sender, self.websocket, file, cursor, sender)
+                            self.questions[sender] = question
+                        self.questions[sender].splitAll(command, commandParams)
+                        if self.questions[sender].room and self.questions[sender].room not in self.questions:
+                            self.questionsRoom[self.questions[sender].room] = self.questions[sender]
+                    
+                    elif command in self.commandsPlayer:
+                        room = name_to_id(commandParams[-1])
+                        if room in self.questionsRoom:
+                            self.questionsRoom[room].splitAll(command, commandParams)
         
         for owner in self.questions.copy():
             question = self.questions[owner]
             if question.questionFinished:
                 self.questions.pop(owner)
+        
+        for room in self.questionsRoom.copy():
+            question = self.questionsRoom[room]
+            if question.questionFinished:
+                self.questionsRoom.pop(room)
