@@ -5,9 +5,8 @@ from showdown.utils import name_to_id
 from config import username, prefix, rooms, trusted
 
 class commands():
-    def __init__(self, sender, websocket, db, cursor, owner):
+    def __init__(self, websocket, db, cursor, owner):
         self.websocket = websocket
-        self.sender = sender
         self.db = db
         self.cursor = cursor
         self.owner = owner
@@ -20,6 +19,7 @@ class commands():
         self.usersPointers = {}
         self.room = ''
         self.roomLB = ''
+        self.sender = ''
         self.answer = ''
         self.html = ''
 
@@ -32,14 +32,15 @@ class commands():
         self.commands = {
             'mq': mq, 'makequestion': mq, 'makeq': mq,
             'add': add, 'danswer': defanswer, 'send': send,
-            'respond': respond, 'deftimer': deftimer, 'lb': lb,
+            'respond': respond, 'deftimer': deftimer,
             'addpoints': addpoints, 'clearpoints': clearpoints,
         }
 
-        timeToFinish = threading.Timer(10 *  60, self.finishQuestion)
-        timeToFinish.start()
+        self.timeToFinish = threading.Timer(10 *  60, self.finishQuestion)
+        self.timeToFinish.start()
 
-    def splitAll(self, command, commandParams):
+    def splitAll(self, command, commandParams, sender):
+        self.sender = sender
         self.command = command
         self.commandParams = commandParams
         if self.command in self.commands:
@@ -139,13 +140,14 @@ class commands():
     async def timeLimit(self):
         self.currentQuestion = False
         self.questionFinished = True
+        self.timeToFinish.cancel()
         self.respondRoom(f"/wall ACABOU O TEMPO!")
         await self.postQuestion()
 
     async def postQuestion(self):
         threads = []
         threads.append(threading.Timer(5, self.respondRoom, args=["E a resposta era..."]))
-        threads.append(threading.Timer(10, self.respondRoom, args=[f"{self.answer}!"]))
+        threads.append(threading.Timer(10, self.respondRoom, args=[f"/wall {self.answer}!"]))
         threads.append(threading.Timer(20, self.respondRoom, args=[f"Pontuadores: {self.usersPointers}"]))
         threads.append(threading.Timer(30, lambda: asyncio.run(self.leaderboard())))
         for thread in threads:
@@ -174,15 +176,15 @@ class commands():
     
     async def addpoints(self, newPoints):
         self.cursor.execute(f"""
-        SELECT user FROM {self.roomLB} WHERE user = "{self.sender}";
+        SELECT user FROM {self.roomLB} WHERE user = "{self.sender}"
         """)
 
         user = self.cursor.fetchall()
 
         if user:
-            points = self.cursor.execute(f"""SELECT points FROM {self.roomLB} WHERE user = "{user}"
+            self.cursor.execute(f"""SELECT points FROM {self.roomLB} WHERE user = "{user[0][0]}"
             """)
-            points += newPoints
+            points = self.cursor.fetchall()[0][0] + newPoints
             self.cursor.execute(f"""UPDATE {self.roomLB} SET points = "{points}" WHERE user = {user}""")
         else:
             self.cursor.execute(f"""INSERT INTO {self.roomLB} (user, points) VALUES (?,?)""", (self.sender, newPoints))
@@ -190,8 +192,12 @@ class commands():
         self.db.commit()
 
     async def clearpoints(self):
-        self.room = name_to_id(self.commandParams[0])
-        self.cursor.execute("DELETE * FROM (?)", (self.room))
+        room = name_to_id(self.commandParams[0])
+        if room not in rooms:
+            self.respondPM(self.sender, "Sala não presente dentre as que o bot está.")
+        roomLB = f"{room}lb"
+        self.cursor.execute(f"""DELETE FROM {roomLB}""")
+        self.db.commit()
         self.respondPM(self.sender, "Pontos da sala limpos!")
     
     async def leaderboard(self):

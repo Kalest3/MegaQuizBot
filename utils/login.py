@@ -56,16 +56,16 @@ class user():
                     commandParams = content.replace(f"{prefix}{command}", "").strip().split(",")
                     if command in self.commandsHost:
                         if sender not in self.questions:
-                            question: commands = commands(sender, self.websocket, file, cursor, sender)
+                            question: commands = commands(self.websocket, file, cursor, sender)
                             self.questions[sender] = question
-                        self.questions[sender].splitAll(command, commandParams)
+                        self.questions[sender].splitAll(command, commandParams, sender)
                         if self.questions[sender].room and self.questions[sender].room not in self.questions:
                             self.questionsRoom[self.questions[sender].room] = self.questions[sender]
                     
                     elif command in self.commandsPlayer:
                         room = name_to_id(commandParams[-1])
                         if room in self.questionsRoom:
-                            self.questionsRoom[room].splitAll(command, commandParams)
+                            self.questionsRoom[room].splitAll(command, commandParams, sender)
         
         for owner in self.questions.copy():
             question = self.questions[owner]
