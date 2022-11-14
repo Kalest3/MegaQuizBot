@@ -8,3 +8,4 @@ with open('config.json') as json_file:
     rooms = jsondata['rooms']
     prefix = jsondata['prefix']
     trusted = jsondata['trusted']
+    ranksAdm = jsondata['ranksAdm']

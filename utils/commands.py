@@ -5,7 +5,7 @@ from showdown.utils import name_to_id
 from config import username, prefix, rooms, trusted
 
 class commands():
-    def __init__(self, websocket, db, cursor, owner):
+    def __init__(self, websocket=None, db=None, cursor=None, owner=''):
         self.websocket = websocket
         self.db = db
         self.cursor = cursor
@@ -23,17 +23,18 @@ class commands():
         self.answer = ''
         self.html = ''
 
-        mq, add, defanswer, send, respond, lb, addpoints, clearpoints, deftimer = lambda : asyncio.create_task(self.makequestion()), \
+        self.mq, self.add, self.defans, self.sendHTML, self.respond, self.lb, self.addpoint, self.clearpoint, self.deftimer = \
+            lambda : asyncio.create_task(self.makequestion()), \
             lambda : asyncio.create_task(self.addalternative()), lambda : asyncio.create_task(self.defanswer()), \
             lambda : asyncio.create_task(self.send()), lambda: asyncio.create_task(self.checkUserAnswer()), \
             lambda : asyncio.create_task(self.leaderboard()), lambda : asyncio.create_task(self.addpoints()), \
             lambda : asyncio.create_task(self.clearpoints()), lambda : asyncio.create_task(self.defTimer())
 
         self.commands = {
-            'mq': mq, 'makequestion': mq, 'makeq': mq,
-            'add': add, 'danswer': defanswer, 'send': send,
-            'respond': respond, 'deftimer': deftimer,
-            'addpoints': addpoints, 'clearpoints': clearpoints,
+            'mq': {'func': self.mq, 'perm': 'host'}, 'makequestion': {'func': self.mq, 'perm': 'host'}, 'makeq': {'func': self.mq, 'perm': 'host'},
+            'add': {'func': self.add, 'perm': 'host'}, 'danswer': {'func': self.defans, 'perm': 'host'}, 'send': {'func': self.sendHTML, 'perm': 'host'},
+            'respond': {'func': self.respond, 'perm': 'user'}, 'deftimer': {'func': self.deftimer, 'perm': 'adm'}, 'lb': {'func': self.lb, 'perm': 'user'},
+            'addpoints': {'func': self.addpoint, 'perm': 'adm'}, 'clearpoints': {'func': self.clearpoint, 'perm': 'adm'},
         }
 
         self.timeToFinish = threading.Timer(10 *  60, self.finishQuestion)
@@ -43,8 +44,7 @@ class commands():
         self.sender = sender
         self.command = command
         self.commandParams = commandParams
-        if self.command in self.commands:
-            self.commands[self.command]()
+        self.commands[self.command]['func']()
 
     def respondRoom(self, message):
         try:
