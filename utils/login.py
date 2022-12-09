@@ -70,7 +70,7 @@ class user():
                                 return await self.websocket.send(f"|/pm {self.sender}, O bot não está nessa room.")
                             
                             await self.websocket.send(f"|/query roominfo {room}")
-                            response = str(self.websocket.recv()).split("|")[3]['users']
+                            response = str(await self.websocket.recv()).split("|")[3]['users']
 
                             users = ' ,'.join(response)
                             userRank = users.find(sender) - 1

@@ -16,6 +16,7 @@ class commands():
         self.timer = 15
         self.alternatives = []
         self.commandParams = []
+        self.usersAnswered = []
         self.usersPointers = {}
         self.room = ''
         self.roomLB = ''
@@ -128,13 +129,15 @@ class commands():
     async def checkUserAnswer(self):
         if self.currentQuestion:
             if len(self.commandParams) >= 2:
-                answer, room = name_to_id(self.commandParams[0]), name_to_id(self.commandParams[1])
-                if answer == name_to_id(self.answer) and room == self.room:
+                self.usersAnswered.append(self.sender)
+                answer = name_to_id(self.commandParams[0])
+                if answer == name_to_id(self.answer):
                     await self.addpoints(1)
                     if self.sender not in self.usersPointers:
                         self.usersPointers[self.sender] = 1
                     else:
                         self.usersPointers[self.sender] += 1
+                
 
 
     async def timeLimit(self):
