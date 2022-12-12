@@ -38,9 +38,6 @@ class commands():
             'addpoints': {'func': self.addpoint, 'perm': 'adm'}, 'clearpoints': {'func': self.clearpoint, 'perm': 'adm'},
         }
 
-        self.timeToFinish = threading.Timer(10 *  60, self.finishQuestion)
-        self.timeToFinish.start()
-
     def splitAll(self, command, commandParams, sender):
         self.sender = sender
         self.command = command
@@ -66,6 +63,10 @@ class commands():
         if self.sender not in trusted:
             self.questionFinished = True
             return self.respondPM(self.sender, "Você não tem permissão para executar este comando.")
+        if len(self.commandParams) < 2:
+            self.questionFinished = True
+            return self.respondPM(self.sender, "Comando: .mq [pergunta], [room]")
+
         self.room = name_to_id(self.commandParams[-1])
 
         if self.room not in rooms:
@@ -91,9 +92,13 @@ class commands():
         timer = self.cursor.fetchall()
 
         if timer:
+            print(timer[0][0])
             self.timer = timer[0][0]
 
         self.respondPM(self.sender, f"Questão feita! Agora, para adicionar alternativas, digite {prefix}add (alternativa).")
+
+        self.timeToFinish = threading.Timer(5, self.finishQuestion)
+        self.timeToFinish.start()
 
     async def addalternative(self):
         if not self.html:
@@ -157,19 +162,21 @@ class commands():
             thread.start()
 
     async def defTimer(self):
-        time: str = self.commandParams[0]
+        time = self.commandParams[0]
+        roomID = name_to_id(self.commandParams[-1])
         if time.isdigit():
-            self.timer = time
+            self.timer = float(time)
             self.cursor.execute(f"""
-            SELECT roomID FROM rooms WHERE roomID = {self.room};
+            SELECT roomID FROM rooms WHERE roomID = "{roomID}"
             """)
 
             room = self.cursor.fetchall()
 
             if room:
-                self.cursor.execute("""UPDATE rooms SET timer = (?) WHERE roomID = (?)""", (self.timer, self.room,))
+                self.cursor.execute(f"""UPDATE rooms SET timer = "{self.timer}" WHERE roomID = "{roomID, self.timer}"
+                """)
             else:
-                self.cursor.execute(f"""INSERT INTO rooms (roomID, timer) VALUES (?,?)""", (self.room, self.timer))
+                self.cursor.execute(f"""INSERT INTO rooms (roomID, timer) VALUES (?,?)""", (roomID, self.timer))
 
             self.db.commit()
 
