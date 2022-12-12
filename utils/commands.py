@@ -34,7 +34,7 @@ class commands():
         self.commands = {
             'mq': {'func': self.mq, 'perm': 'host'}, 'makequestion': {'func': self.mq, 'perm': 'host'}, 'makeq': {'func': self.mq, 'perm': 'host'},
             'add': {'func': self.add, 'perm': 'host'}, 'danswer': {'func': self.defans, 'perm': 'host'}, 'send': {'func': self.sendHTML, 'perm': 'host'},
-            'respond': {'func': self.respond, 'perm': 'user'}, 'deftimer': {'func': self.deftimer, 'perm': 'adm'}, 'lb': {'func': self.lb, 'perm': 'user'},
+            'respond': {'func': self.respond, 'perm': 'user'}, 'deftimer': {'func': self.deftimer, 'perm': 'adm'}, 'lb': {'func': self.lb, 'perm': 'general'},
             'addpoints': {'func': self.addpoint, 'perm': 'adm'}, 'clearpoints': {'func': self.clearpoint, 'perm': 'adm'},
         }
 
@@ -92,16 +92,16 @@ class commands():
         timer = self.cursor.fetchall()
 
         if timer:
-            print(timer[0][0])
             self.timer = timer[0][0]
 
         self.respondPM(self.sender, f"Questão feita! Agora, para adicionar alternativas, digite {prefix}add (alternativa).")
 
-        self.timeToFinish = threading.Timer(5, self.finishQuestion)
+        self.timeToFinish = threading.Timer(10 * 60, self.finishQuestion)
         self.timeToFinish.start()
 
     async def addalternative(self):
         if not self.html:
+            self.questionFinished = True
             return self.respondPM(self.sender, "Nenhuma questão foi definida.")
 
         alternative = self.commandParams[0]
@@ -125,6 +125,9 @@ class commands():
             return self.respondPM(self.sender, "A alternativa indicada não foi definida.")
 
     async def send(self):
+        if not self.html:
+            return self.respondPM(self.sender, "Nenhuma questão foi definida.")
+
         self.html += "</tbody></table></center></div>"
         self.respondRoom(f"/addhtmlbox {self.html}")
         self.currentQuestion = True
@@ -211,7 +214,10 @@ class commands():
         self.respondPM(self.sender, "Pontos da sala limpos!")
     
     async def leaderboard(self):
-        self.cursor.execute(f"SELECT * FROM {self.roomLB}")
+        self.room = name_to_id(self.commandParams[-1])
+        self.roomLB = f"{self.room}lb"
+        self.cursor.execute(f"""SELECT * FROM "{self.roomLB}"
+        """)
         lb = ''
         for data in self.cursor.fetchall():
             user = data[0]

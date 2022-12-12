@@ -79,6 +79,17 @@ class user():
                             if userRank in ranksAdm:
                                 commandIns = commands(self.websocket, file, cursor)
                                 commandIns.splitAll(command, commandParams, senderID)
+                            else:
+                                return await self.websocket.send(f"|/pm {senderID}, Você não tem permissão para usar este comando.")
+                        
+                        elif self.commands[command]['perm'] == 'general':
+                            room = name_to_id(commandParams[-1])
+                            if room not in rooms:
+                                return await self.websocket.send(f"|/pm {senderID}, O bot não está nessa room.")
+                            
+                            commandIns = commands(self.websocket, file, cursor)
+                            commandIns.splitAll(command, commandParams, senderID)
+                            
 
         for owner in self.questions.copy():
             question = self.questions[owner]
