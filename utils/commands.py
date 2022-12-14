@@ -5,8 +5,9 @@ from showdown.utils import name_to_id
 from config import username, prefix, rooms, trusted
 
 class commands():
-    def __init__(self, websocket=None, db=None, cursor=None, owner=''):
+    def __init__(self, msgType=None, websocket=None, db=None, cursor=None, owner=''):
         self.websocket = websocket
+        self.msgType = msgType
         self.db = db
         self.cursor = cursor
         self.owner = owner
@@ -18,6 +19,9 @@ class commands():
         self.commandParams = []
         self.usersAnswered = []
         self.usersPointers = {}
+        self.aliases = {
+            'mq': 'makequestion'
+        }
         self.room = ''
         self.roomLB = ''
         self.sender = ''
@@ -31,18 +35,24 @@ class commands():
             lambda : asyncio.create_task(self.leaderboard()), lambda : asyncio.create_task(self.addpoints()), \
             lambda : asyncio.create_task(self.clearpoints()), lambda : asyncio.create_task(self.defTimer())
 
+
         self.commands = {
-            'mq': {'func': self.mq, 'perm': 'host'}, 'makequestion': {'func': self.mq, 'perm': 'host'}, 'makeq': {'func': self.mq, 'perm': 'host'},
-            'add': {'func': self.add, 'perm': 'host'}, 'danswer': {'func': self.defans, 'perm': 'host'}, 'send': {'func': self.sendHTML, 'perm': 'host'},
-            'respond': {'func': self.respond, 'perm': 'user'}, 'deftimer': {'func': self.deftimer, 'perm': 'adm'}, 'lb': {'func': self.lb, 'perm': 'general'},
-            'addpoints': {'func': self.addpoint, 'perm': 'adm'}, 'clearpoints': {'func': self.clearpoint, 'perm': 'adm'},
+            'mq': {'func': self.mq, 'perm': 'host', 'type': 'pm'}, 'add': {'func': self.add, 'perm': 'host', 'type': 'pm'}, 
+            'danswer': {'func': self.defans, 'perm': 'host', 'type': 'pm'}, 'send': {'func': self.sendHTML, 'perm': 'host', 'type': 'both'},
+            'respond': {'func': self.respond, 'perm': 'user', 'type': 'pm'}, 'deftimer': {'func': self.deftimer, 'perm': 'adm', 'type': 'both'}, 
+            'lb': {'func': self.lb, 'perm': 'general', 'type': 'both'}, 'addpoints': {'func': self.addpoint, 'perm': 'adm', 'type': 'both'}, 
+            'clearpoints': {'func': self.clearpoint, 'perm': 'adm', 'type': 'pm'},
         }
 
     def splitAll(self, command, commandParams, sender):
         self.sender = sender
         self.command = command
         self.commandParams = commandParams
+        if self.commands[self.command]['type'] == 'pm' and self.msgType == 'room':
+            self.respondPM(self.sender, 'Este comando deve ser executado somente por PM.')
+            return
         self.commands[self.command]['func']()
+
 
     def respondRoom(self, message):
         try:
