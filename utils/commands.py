@@ -5,12 +5,12 @@ from showdown.utils import name_to_id
 from config import username, prefix, rooms, trusted
 
 class commands():
-    def __init__(self, msgType=None, websocket=None, db=None, cursor=None, owner=''):
+    def __init__(self, websocket=None, db=None, cursor=None, owner='', msgType=''):
         self.websocket = websocket
-        self.msgType = msgType
         self.db = db
         self.cursor = cursor
         self.owner = owner
+        self.msgType = msgType
         self.currentQuestion = False
         self.questionFinished = False
         self.alternativesNumber = 0
@@ -48,11 +48,7 @@ class commands():
         self.sender = sender
         self.command = command
         self.commandParams = commandParams
-        if self.commands[self.command]['type'] == 'pm' and self.msgType == 'room':
-            self.respondPM(self.sender, 'Este comando deve ser executado somente por PM.')
-            return
         self.commands[self.command]['func']()
-
 
     def respondRoom(self, message):
         try:
@@ -60,7 +56,6 @@ class commands():
         except RuntimeError:
             return asyncio.run(self.websocket.send(f"{self.room}|{message}"))
         return asyncio.gather(self.websocket.send(f"{self.room}|{message}"))
-        
 
     def respondPM(self, user, message):
         try:
@@ -68,6 +63,12 @@ class commands():
         except RuntimeError:
             return asyncio.run(self.websocket.send(f"|/pm {user}, {message}"))
         return asyncio.gather(self.websocket.send(f"|/pm {user}, {message}"))
+    
+    def respond(self, msg, user=None):
+        if self.msgType == 'pm':
+            self.respondPM(user, msg)
+        elif self.msgType == 'room':
+            self.respondRoom(msg)
 
     async def makequestion(self):
         if self.sender not in trusted:
@@ -136,7 +137,7 @@ class commands():
 
     async def send(self):
         if not self.html:
-            return self.respondPM(self.sender, "Nenhuma questão foi definida.")
+            return self.respond("Nenhuma questão foi definida.", self.sender)
 
         self.html += "</tbody></table></center></div>"
         self.respondRoom(f"/addhtmlbox {self.html}")
@@ -155,8 +156,6 @@ class commands():
                         self.usersPointers[self.sender] = 1
                     else:
                         self.usersPointers[self.sender] += 1
-                
-
 
     async def timeLimit(self):
         self.currentQuestion = False
@@ -193,9 +192,9 @@ class commands():
 
             self.db.commit()
 
-            self.respondPM(self.sender, f"O tempo foi alterado para {time} segundos!")
+            self.respond(f"O tempo foi alterado para {time} segundos!", self.sender)
         else:
-            self.respondPM(self.sender, "Digite um tempo válido!")
+            self.respond("Digite um tempo válido!", self.sender)
     
     async def addpoints(self, newPoints):
         self.cursor.execute(f"""
@@ -224,8 +223,9 @@ class commands():
         self.respondPM(self.sender, "Pontos da sala limpos!")
     
     async def leaderboard(self):
-        self.room = name_to_id(self.commandParams[-1])
-        self.roomLB = f"{self.room}lb"
+        if not self.room:
+            self.room = name_to_id(self.commandParams[-1])
+            self.roomLB = f"{self.room}lb"
         self.cursor.execute(f"""SELECT * FROM "{self.roomLB}"
         """)
         lb = ''
