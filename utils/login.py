@@ -83,7 +83,6 @@ class user():
                         
                         await self.websocket.send(f"|/query roominfo {room}")
                         response = str(json.loads(str(await self.websocket.recv()).split("|")[3])['auth'])
-                        print(response)
 
                         substringSender = f"{senderID}'"
 

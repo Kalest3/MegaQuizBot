@@ -28,8 +28,8 @@ class commands():
         self.answer = ''
         self.html = ''
 
-        self.mq, self.add, self.defans, self.sendHTML, self.respond, self.lb, self.addpoint, self.clearpoint, self.deftimer = \
-            lambda : asyncio.create_task(self.makequestion()), \
+        self.mq, self.cancelQ, self.add, self.defans, self.sendHTML, self.userAnswer, self.lb, self.addpoint, self.clearpoint, self.deftimer = \
+            lambda : asyncio.create_task(self.makequestion()), lambda : asyncio.create_task(self.cancel()), \
             lambda : asyncio.create_task(self.addalternative()), lambda : asyncio.create_task(self.defanswer()), \
             lambda : asyncio.create_task(self.send()), lambda: asyncio.create_task(self.checkUserAnswer()), \
             lambda : asyncio.create_task(self.leaderboard()), lambda : asyncio.create_task(self.addpoints()), \
@@ -37,9 +37,10 @@ class commands():
 
 
         self.commands = {
-            'mq': {'func': self.mq, 'perm': 'host', 'type': 'pm'}, 'add': {'func': self.add, 'perm': 'host', 'type': 'pm'}, 
+            'mq': {'func': self.mq, 'perm': 'host', 'type': 'pm'}, 'cancel': {'func': self.cancelQ, 'perm': 'host', 'type': 'pm'},
+            'add': {'func': self.add, 'perm': 'host', 'type': 'pm'}, 
             'danswer': {'func': self.defans, 'perm': 'host', 'type': 'pm'}, 'send': {'func': self.sendHTML, 'perm': 'host', 'type': 'both'},
-            'respond': {'func': self.respond, 'perm': 'user', 'type': 'pm'}, 'deftimer': {'func': self.deftimer, 'perm': 'adm', 'type': 'both'}, 
+            'respond': {'func': self.userAnswer, 'perm': 'user', 'type': 'pm'}, 'deftimer': {'func': self.deftimer, 'perm': 'adm', 'type': 'both'}, 
             'lb': {'func': self.lb, 'perm': 'general', 'type': 'both'}, 'addpoints': {'func': self.addpoint, 'perm': 'adm', 'type': 'both'}, 
             'clearpoints': {'func': self.clearpoint, 'perm': 'adm', 'type': 'pm'},
         }
@@ -83,6 +84,9 @@ class commands():
         if self.room not in rooms:
             self.questionFinished = True
             return self.respondPM(self.sender, "Room não presente dentre as que o bot está.")
+        
+        if self.html:
+            return self.respondPM(self.sender, f"Cancele a questão com o comando {prefix}cancel para fazer outra.")
 
         self.roomLB = f"{self.room}lb"
         question = self.commandParams[0]
@@ -109,6 +113,10 @@ class commands():
 
         self.timeToFinish = threading.Timer(10 * 60, self.finishQuestion)
         self.timeToFinish.start()
+    
+    async def cancel(self):
+        self.questionFinished = True
+        return self.respondPM(self.sender, "Questão cancelada.")
 
     async def addalternative(self):
         if not self.html:
@@ -163,6 +171,7 @@ class commands():
         self.timeToFinish.cancel()
         self.respondRoom(f"/wall ACABOU O TEMPO!")
         await self.postQuestion()
+        self.questionFinished = True
 
     async def postQuestion(self):
         threads = []
@@ -197,6 +206,7 @@ class commands():
             self.respond("Digite um tempo válido!", self.sender)
     
     async def addpoints(self, newPoints):
+        
         self.cursor.execute(f"""
         SELECT user FROM {self.roomLB} WHERE user = "{self.sender}"
         """)
