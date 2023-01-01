@@ -87,7 +87,7 @@ class user():
                         substringSender = f"{senderID}'"
 
                         if substringSender in response:
-                            commandIns = commands(self.websocket, file, cursor, msgType)
+                            commandIns = commands(self.websocket, file, cursor, msgType=msgType)
                             commandIns.splitAll(command, commandParams, senderID)
                         else:
                             return await self.websocket.send(f"|/pm {senderID}, Você não tem permissão para usar este comando.")
@@ -97,7 +97,7 @@ class user():
                         if room not in rooms:
                             return await self.websocket.send(f"|/pm {senderID}, O bot não está nessa room.")
                         
-                        commandIns = commands(self.websocket, file, cursor)
+                        commandIns = commands(self.websocket, file, cursor, msgType=msgType)
                         commandIns.splitAll(command, commandParams, senderID)
                             
 

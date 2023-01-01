@@ -19,9 +19,6 @@ class commands():
         self.commandParams = []
         self.usersAnswered = []
         self.usersPointers = {}
-        self.aliases = {
-            'mq': 'makequestion'
-        }
         self.room = ''
         self.roomLB = ''
         self.sender = ''
@@ -99,7 +96,7 @@ class commands():
 
         self.cursor.execute(f"""CREATE TABLE IF NOT EXISTS {self.roomLB} (
             user TEXT PRIMARY KEY,
-            points INTEGER)""")
+            points FLOAT)""")
         
         self.cursor.execute(f"""SELECT timer FROM rooms WHERE roomID = "{self.room}"
         """)
@@ -205,23 +202,40 @@ class commands():
         else:
             self.respond("Digite um tempo válido!", self.sender)
     
-    async def addpoints(self, newPoints):
-        
+    async def addpoints(self, newPoints=1):
+        if self.command == "addpoints":
+            if len(self.commandParams) != 3:
+                return self.respond(f"Uso do comando: {prefix}.addpoints [usuario], [pontos], [sala]", self.sender)
+            user = self.commandParams[0]
+            newPoints = self.commandParams[1]
+            self.roomLB = f"{self.commandParams[-1]}lb".strip()
+            try:
+                newPoints = float(newPoints)
+            except:
+                return self.respond(f"Uso do comando: {prefix}addpoints [usuario], [pontos], [sala]", self.sender)
+        else:
+            user = self.sender
+
         self.cursor.execute(f"""
-        SELECT user FROM {self.roomLB} WHERE user = "{self.sender}"
+        SELECT user FROM "{self.roomLB}" WHERE user = "{user}"
         """)
 
-        user = self.cursor.fetchall()
+        user = self.cursor.fetchall()[0][0]
 
         if user:
-            self.cursor.execute(f"""SELECT points FROM {self.roomLB} WHERE user = "{user[0][0]}"
+            self.cursor.execute(f"""SELECT points FROM "{self.roomLB}" WHERE user = "{user}"
             """)
             points = self.cursor.fetchall()[0][0] + newPoints
-            self.cursor.execute(f"""UPDATE {self.roomLB} SET points = "{points}" WHERE user = {user}""")
+            self.cursor.execute(f"""UPDATE "{self.roomLB}" SET points = {points} WHERE user = "{user}"
+            """)
         else:
-            self.cursor.execute(f"""INSERT INTO {self.roomLB} (user, points) VALUES (?,?)""", (self.sender, newPoints))
+            self.cursor.execute(f"""INSERT INTO "{self.roomLB}" (user, points) VALUES (?,?)""", (self.sender, newPoints))
+
+        if self.command == "addpoints":
+            self.respond("Pontos adicionados!", self.sender)
 
         self.db.commit()
+
 
     async def clearpoints(self):
         room = name_to_id(self.commandParams[0])
