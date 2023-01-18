@@ -1,5 +1,6 @@
 import asyncio
 import threading
+import random
 
 from showdown.utils import name_to_id
 from config import username, prefix, rooms, trusted
@@ -17,6 +18,7 @@ class commands():
         self.timer = 15
         self.alternatives = []
         self.commandParams = []
+        self.fontColors = ["#008000", "#0000e6", "#cc0000", "#e0ae1b"]
         self.usersAnswered = []
         self.usersPointers = {}
         self.room = ''
@@ -24,22 +26,23 @@ class commands():
         self.sender = ''
         self.answer = ''
         self.html = ''
+        self.question = ''
 
-        self.mq, self.cancelQ, self.add, self.defans, self.sendHTML, self.userAnswer, self.lb, self.addpoint, self.clearpoint, self.deftimer = \
+        self.mq, self.cancelQ, self.add, self.defans, self.showQuestion, self.sendHTML, self.userAnswer, self.lb, self.addpoint, self.clearpoint, self.deftimer = \
             lambda : asyncio.create_task(self.makequestion()), lambda : asyncio.create_task(self.cancel()), \
             lambda : asyncio.create_task(self.addalternative()), lambda : asyncio.create_task(self.defanswer()), \
-            lambda : asyncio.create_task(self.send()), lambda: asyncio.create_task(self.checkUserAnswer()), \
+            lambda : asyncio.create_task(self.questionShow()), lambda : asyncio.create_task(self.send()), lambda: asyncio.create_task(self.checkUserAnswer()), \
             lambda : asyncio.create_task(self.leaderboard()), lambda : asyncio.create_task(self.addpoints()), \
             lambda : asyncio.create_task(self.clearpoints()), lambda : asyncio.create_task(self.defTimer())
 
 
         self.commands = {
             'mq': {'func': self.mq, 'perm': 'host', 'type': 'pm'}, 'cancel': {'func': self.cancelQ, 'perm': 'host', 'type': 'pm'},
-            'add': {'func': self.add, 'perm': 'host', 'type': 'pm'}, 
-            'danswer': {'func': self.defans, 'perm': 'host', 'type': 'pm'}, 'send': {'func': self.sendHTML, 'perm': 'host', 'type': 'both'},
-            'respond': {'func': self.userAnswer, 'perm': 'user', 'type': 'pm'}, 'deftimer': {'func': self.deftimer, 'perm': 'adm', 'type': 'both'}, 
-            'lb': {'func': self.lb, 'perm': 'general', 'type': 'both'}, 'addpoints': {'func': self.addpoint, 'perm': 'adm', 'type': 'both'}, 
-            'clearpoints': {'func': self.clearpoint, 'perm': 'adm', 'type': 'pm'},
+            'add': {'func': self.add, 'perm': 'host', 'type': 'pm'}, 'danswer': {'func': self.defans, 'perm': 'host', 'type': 'pm'},
+            'showquestion': {'func': self.showQuestion, 'perm': 'host', 'type': 'pm'},
+            'send': {'func': self.sendHTML, 'perm': 'host', 'type': 'both'}, 'respond': {'func': self.userAnswer, 'perm': 'user', 'type': 'pm'}, 
+            'deftimer': {'func': self.deftimer, 'perm': 'adm', 'type': 'both'}, 'lb': {'func': self.lb, 'perm': 'general', 'type': 'both'}, 
+            'addpoints': {'func': self.addpoint, 'perm': 'adm', 'type': 'both'}, 'clearpoints': {'func': self.clearpoint, 'perm': 'adm', 'type': 'pm'},
         }
 
     def splitAll(self, command, commandParams, sender):
@@ -86,9 +89,9 @@ class commands():
             return self.respondPM(self.sender, f"Cancele a questão com o comando {prefix}cancel para fazer outra.")
 
         self.roomLB = f"{self.room}lb"
-        question = self.commandParams[0]
+        self.question = self.commandParams[0]
 
-        self.html += f'<div class="infobox"><center><font size="4">{question}</font><br><br><table width="100%" frame="box" rules="all" cellpadding="10"><tbody>'
+        self.html += f'<div class="infobox"><center><font size="4">{self.question}</font><br><br><table width="100%" frame="box" rules="all" cellpadding="10"><tbody>'
 
         self.cursor.execute(f"""CREATE TABLE IF NOT EXISTS rooms (
             roomID TEXT PRIMARY KEY,
@@ -112,6 +115,12 @@ class commands():
         self.timeToFinish.start()
     
     async def cancel(self):
+        self.room = name_to_id(self.commandParams[-1])
+
+        if self.room not in rooms:
+            self.questionFinished = True
+            return self.respondPM(self.sender, "Room não presente dentre as que o bot está.")
+
         self.questionFinished = True
         return self.respondPM(self.sender, "Questão cancelada.")
 
@@ -119,12 +128,16 @@ class commands():
         if not self.html:
             self.questionFinished = True
             return self.respondPM(self.sender, "Nenhuma questão foi definida.")
+        if self.alternativesNumber == 4:
+            return self.respondPM(self.sender, "Limite de alternativas atingido!")
 
         alternative = self.commandParams[0]
+        color = random.choice(self.fontColors)
         if self.alternativesNumber % 2 == 0:
-            self.html += f'<tr><td style="width: 50.00%"><center><button name="send" value="/w {username},{prefix}respond {alternative}, {self.room}" style=background-color:transparent;border:none;><font color="#cc0000" size="3"><b>{alternative}</b></font></button></center>'
+            self.html += f'<tr><td style="width: 50.00%"><center><button name="send" value="/w {username},{prefix}respond {alternative}, {self.room}" style=background-color:transparent;border:none;><font color="{color}" size="3"><b>{alternative}</b></font></button></center>'
         else:
-            self.html += f'<td style="width: 50.00%"><center><button name="send" value="/w {username},{prefix}respond {alternative}, {self.room}" style=background-color:transparent;border:none;><font color="#cc0000" size="3"><b>{alternative}</b></font></button></center></tr>'
+            self.html += f'<td style="width: 50.00%"><center><button name="send" value="/w {username},{prefix}respond {alternative}, {self.room}" style=background-color:transparent;border:none;><font color="{color}" size="3"><b>{alternative}</b></font></button></center></tr>'
+        self.fontColors.remove(color)
         self.alternativesNumber += 1
         self.alternatives.append(alternative)
 
@@ -135,15 +148,25 @@ class commands():
         if alternative in self.alternatives:
             self.answer = alternative
             self.respondPM(self.sender, f"A alternativa {alternative} foi configurada como a correta.")
+
         elif not self.html:
             return self.respondPM(self.sender, "Nenhuma questão foi definida.")
+
         elif alternative not in self.alternatives:
             return self.respondPM(self.sender, "A alternativa indicada não foi definida.")
+
+    async def questionShow(self):
+        if not self.html:
+            self.questionFinished = True
+            return self.respondPM(self.sender, "Nenhuma questão foi definida.")
+
+        code = f"A questão está assim:\nQuestão: {self.question}\nAlternativas: {', '.join(self.alternatives)}\nAlternativa correta: {self.answer}"
+
+        self.respondPM(self.sender, f"!code {code}")
 
     async def send(self):
         if not self.html:
             return self.respond("Nenhuma questão foi definida.", self.sender)
-
         self.html += "</tbody></table></center></div>"
         self.respondRoom(f"/addhtmlbox {self.html}")
         self.currentQuestion = True
@@ -171,10 +194,11 @@ class commands():
         self.questionFinished = True
 
     async def postQuestion(self):
+        self.msgType = 'room'
         threads = []
         threads.append(threading.Timer(5, self.respondRoom, args=["E a resposta era..."]))
         threads.append(threading.Timer(10, self.respondRoom, args=[f"/wall {self.answer}!"]))
-        threads.append(threading.Timer(20, self.respondRoom, args=[f"Pontuadores: {self.usersPointers}"]))
+        threads.append(threading.Timer(20, self.respondRoom, args=[f"Pontuadores: {', '.join(self.usersPointers)}"]))
         threads.append(threading.Timer(30, lambda: asyncio.run(self.leaderboard())))
         for thread in threads:
             thread.start()
@@ -220,9 +244,10 @@ class commands():
         SELECT user FROM "{self.roomLB}" WHERE user = "{user}"
         """)
 
-        user = self.cursor.fetchall()[0][0]
+        user = self.cursor.fetchall()
 
         if user:
+            user = user[0][0]
             self.cursor.execute(f"""SELECT points FROM "{self.roomLB}" WHERE user = "{user}"
             """)
             points = self.cursor.fetchall()[0][0] + newPoints
@@ -257,8 +282,8 @@ class commands():
             user = data[0]
             points = data[1]
             lb += f"{user}: {points}\n"
-        self.respondRoom(f"!code Leaderboard:\n{lb}")
-    
+        self.respond(f"!code Leaderboard:\n{lb}", self.sender)
+
     def finishQuestion(self):
         self.questionFinished = True
         self.respondPM(self.owner, "Acabou o prazo para formalizar a questão.")

@@ -74,7 +74,7 @@ class user():
                         room = name_to_id(commandParams[-1])
                         if room in self.questionsRoom:
                             self.questionsRoom[room].splitAll(command, commandParams, senderID)
-                    
+
                     elif self.commands[command]['perm'] == 'adm':
                         room = name_to_id(commandParams[-1])
 
