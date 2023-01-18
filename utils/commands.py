@@ -210,7 +210,7 @@ class commands():
             room = self.cursor.fetchall()
 
             if room:
-                self.cursor.execute(f"""UPDATE rooms SET timer = "{self.timer}" WHERE roomID = "{self.room, self.timer}"
+                self.cursor.execute(f"""UPDATE rooms SET timer = "{self.timer}" WHERE roomID = "{self.room}"
                 """)
             else:
                 self.cursor.execute(f"""INSERT INTO rooms (roomID, timer) VALUES (?,?)""", (self.room, self.timer))
