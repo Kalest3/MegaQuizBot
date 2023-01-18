@@ -28,11 +28,11 @@ class commands():
         self.html = ''
         self.question = ''
 
-        self.mq, self.cancelQ, self.add, self.defans, self.showQuestion, self.sendHTML, self.userAnswer, self.lb, self.addpoint, self.clearpoint, self.deftimer = \
+        self.mq, self.cancelQ, self.add, self.defans, self.showQuestion, self.sendHTML, self.userAnswer, self.lb, self.addpoint, self.rempoint, self.clearpoint, self.deftimer = \
             lambda : asyncio.create_task(self.makequestion()), lambda : asyncio.create_task(self.cancel()), \
             lambda : asyncio.create_task(self.addalternative()), lambda : asyncio.create_task(self.defanswer()), \
             lambda : asyncio.create_task(self.questionShow()), lambda : asyncio.create_task(self.send()), lambda: asyncio.create_task(self.checkUserAnswer()), \
-            lambda : asyncio.create_task(self.leaderboard()), lambda : asyncio.create_task(self.addpoints()), \
+            lambda : asyncio.create_task(self.leaderboard()), lambda : asyncio.create_task(self.addpoints()), lambda: asyncio.create_task(self.rempoints()), \
             lambda : asyncio.create_task(self.clearpoints()), lambda : asyncio.create_task(self.defTimer())
 
 
@@ -42,7 +42,8 @@ class commands():
             'showquestion': {'func': self.showQuestion, 'perm': 'host', 'type': 'pm'},
             'send': {'func': self.sendHTML, 'perm': 'host', 'type': 'both'}, 'respond': {'func': self.userAnswer, 'perm': 'user', 'type': 'pm'}, 
             'deftimer': {'func': self.deftimer, 'perm': 'adm', 'type': 'both'}, 'lb': {'func': self.lb, 'perm': 'general', 'type': 'both'}, 
-            'addpoints': {'func': self.addpoint, 'perm': 'adm', 'type': 'both'}, 'clearpoints': {'func': self.clearpoint, 'perm': 'adm', 'type': 'pm'},
+            'addpoints': {'func': self.addpoint, 'perm': 'adm', 'type': 'both'}, 'rpoints': {'func': self.rempoint, 'perm': 'adm', 'type': 'both'}, 
+            'clearpoints': {'func': self.clearpoint, 'perm': 'adm', 'type': 'both'},
         }
 
     def splitAll(self, command, commandParams, sender):
@@ -115,12 +116,6 @@ class commands():
         self.timeToFinish.start()
     
     async def cancel(self):
-        self.room = name_to_id(self.commandParams[-1])
-
-        if self.room not in rooms:
-            self.questionFinished = True
-            return self.respondPM(self.sender, "Room não presente dentre as que o bot está.")
-
         self.questionFinished = True
         return self.respondPM(self.sender, "Questão cancelada.")
 
@@ -205,20 +200,20 @@ class commands():
 
     async def defTimer(self):
         time = self.commandParams[0]
-        roomID = name_to_id(self.commandParams[-1])
+        self.room = name_to_id(self.commandParams[-1])
         if time.isdigit():
             self.timer = float(time)
             self.cursor.execute(f"""
-            SELECT roomID FROM rooms WHERE roomID = "{roomID}"
+            SELECT roomID FROM rooms WHERE roomID = "{self.room}"
             """)
 
             room = self.cursor.fetchall()
 
             if room:
-                self.cursor.execute(f"""UPDATE rooms SET timer = "{self.timer}" WHERE roomID = "{roomID, self.timer}"
+                self.cursor.execute(f"""UPDATE rooms SET timer = "{self.timer}" WHERE roomID = "{self.room, self.timer}"
                 """)
             else:
-                self.cursor.execute(f"""INSERT INTO rooms (roomID, timer) VALUES (?,?)""", (roomID, self.timer))
+                self.cursor.execute(f"""INSERT INTO rooms (roomID, timer) VALUES (?,?)""", (self.room, self.timer))
 
             self.db.commit()
 
@@ -230,9 +225,10 @@ class commands():
         if self.command == "addpoints":
             if len(self.commandParams) != 3:
                 return self.respond(f"Uso do comando: {prefix}.addpoints [usuario], [pontos], [sala]", self.sender)
-            user = self.commandParams[0]
+            user = name_to_id(self.commandParams[0])
             newPoints = self.commandParams[1]
-            self.roomLB = f"{self.commandParams[-1]}lb".strip()
+            self.room = self.commandParams[-1].strip()
+            self.roomLB = f"{self.room}lb"
             try:
                 newPoints = float(newPoints)
             except:
@@ -260,6 +256,49 @@ class commands():
             self.respond("Pontos adicionados!", self.sender)
 
         self.db.commit()
+
+
+    async def rempoints(self, newPoints=1):
+        if len(self.commandParams) != 3:
+            return self.respond(f"Uso do comando: {prefix}.rpoints [usuario], [pontos], [sala]", self.sender)
+        user = name_to_id(self.commandParams[0])
+        newPoints = self.commandParams[1]
+        self.room = self.commandParams[-1].strip()
+        self.roomLB = f"{self.room}lb"
+        try:
+            newPoints = float(newPoints)
+        except:
+            return self.respond(f"Uso do comando: {prefix}rpoints [usuario], [pontos], [sala]", self.sender)
+
+        print(user)
+
+        self.cursor.execute(f"""
+        SELECT user FROM "{self.roomLB}" WHERE user = "{user}"
+        """)
+
+        user = self.cursor.fetchall()
+
+        print(user)
+
+        if user:
+            user = user[0][0]
+            self.cursor.execute(f"""SELECT points FROM "{self.roomLB}" WHERE user = "{user}"
+            """)
+            points = self.cursor.fetchall()[0][0] - newPoints
+            self.cursor.execute(f"""UPDATE "{self.roomLB}" SET points = {points} WHERE user = "{user}"
+            """)
+            if points <= 0:
+                self.cursor.execute(f"""
+                DELETE FROM "{self.roomLB}" WHERE user = "{user}"
+                """)
+        else:
+            return self.respond("O usuário não tem pontos para serem removidos.", self.sender)
+
+        if self.command == "rpoints":
+            self.respond("Pontos removidos!", self.sender)
+
+        self.db.commit()
+
 
 
     async def clearpoints(self):

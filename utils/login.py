@@ -54,6 +54,7 @@ class user():
                 msgType = 'room'
             else:
                 return
+
             if content[0] == prefix:
                 command = content.split(" ")[0].strip()[1:]
                 commandParams = content.replace(f"{prefix}{command}", "").strip().split(",")
@@ -84,7 +85,7 @@ class user():
                         await self.websocket.send(f"|/query roominfo {room}")
                         response = str(json.loads(str(await self.websocket.recv()).split("|")[3])['auth'])
 
-                        substringSender = f"{senderID}'"
+                        substringSender = f"'{senderID}'"
 
                         if substringSender in response:
                             commandIns = commands(self.websocket, file, cursor, msgType=msgType)
