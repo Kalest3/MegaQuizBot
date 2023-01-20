@@ -23,6 +23,7 @@ class user():
         self.questions = {}
         self.questionsRoom = {}
         self.commands = commands().commands
+        self.aliases = commands().aliases
 
     async def login(self):
         while True:
@@ -58,6 +59,8 @@ class user():
             if content[0] == prefix:
                 command = content.split(" ")[0].strip()[1:]
                 commandParams = content.replace(f"{prefix}{command}", "").strip().split(",")
+                if command in self.aliases:
+                    command = self.aliases[command]
                 if command in self.commands:
                     if self.commands[command]['type'] == 'pm' and msgType == 'room':
                         return await self.websocket.send(f"|/pm {senderID}, Este comando deve ser executado somente por PM.")

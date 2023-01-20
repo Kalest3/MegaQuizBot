@@ -21,6 +21,19 @@ class commands():
         self.fontColors = ["#008000", "#0000e6", "#cc0000", "#e0ae1b"]
         self.usersAnswered = []
         self.usersPointers = {}
+        self.aliases = {
+            "makequestion": "mq",
+            "cancelquestion": "cancel",
+            "answer": "danswer",
+            "question": "showquestion",
+            "leaderboard": "lb",
+            "addpoint": "addpoints",
+            "addp": "addpoints",
+            "rpoint": "rpoints",
+            "removepoints": "rpoints",
+            "clear": "clearpoints",
+            "dtimer": "deftimer",
+        }
         self.room = ''
         self.roomLB = ''
         self.sender = ''
@@ -28,7 +41,8 @@ class commands():
         self.html = ''
         self.question = ''
 
-        self.mq, self.cancelQ, self.add, self.defans, self.showQuestion, self.sendHTML, self.userAnswer, self.lb, self.addpoint, self.rempoint, self.clearpoint, self.deftimer = \
+        self.mq, self.cancelQ, self.add, self.defans, self.showQuestion, self.sendHTML, self.userAnswer, self.lb, \
+        self.addpoint, self.rempoint, self.clearpoint, self.deftimer = \
             lambda : asyncio.create_task(self.makequestion()), lambda : asyncio.create_task(self.cancel()), \
             lambda : asyncio.create_task(self.addalternative()), lambda : asyncio.create_task(self.defanswer()), \
             lambda : asyncio.create_task(self.questionShow()), lambda : asyncio.create_task(self.send()), lambda: asyncio.create_task(self.checkUserAnswer()), \
