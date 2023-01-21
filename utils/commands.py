@@ -284,15 +284,12 @@ class commands():
         except:
             return self.respond(f"Uso do comando: {prefix}rpoints [usuario], [pontos], [sala]", self.sender)
 
-        print(user)
-
         self.cursor.execute(f"""
         SELECT user FROM "{self.roomLB}" WHERE user = "{user}"
         """)
 
         user = self.cursor.fetchall()
 
-        print(user)
 
         if user:
             user = user[0][0]

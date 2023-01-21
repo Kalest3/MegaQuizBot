@@ -11,7 +11,7 @@ logging.basicConfig(
         level=logging.DEBUG,
         )
 
-file = sqlite3.connect("leaderboard.db", check_same_thread=False)
+file = sqlite3.connect("database.db", check_same_thread=False)
 cursor = file.cursor()
 
 
@@ -44,12 +44,10 @@ class user():
         msgSplited = self.msg.split("|")
         if len(msgSplited) >= 4:
             if msgSplited[1] == "pm":
-                sender = msgSplited[2][1:]
                 senderID = name_to_id(msgSplited[2])
                 content = msgSplited[4]
                 msgType = 'pm'
             elif msgSplited[1] == "c:":
-                sender = msgSplited[3][1:]
                 senderID = name_to_id(msgSplited[3])
                 content = msgSplited[4]
                 msgType = 'room'
