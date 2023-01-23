@@ -254,17 +254,17 @@ class commands():
         SELECT user FROM "{self.roomLB}" WHERE user = "{user}"
         """)
 
-        user = self.cursor.fetchall()
+        userinDB = self.cursor.fetchall()
 
-        if user:
-            user = user[0][0]
+        if userinDB:
+            user = userinDB[0][0]
             self.cursor.execute(f"""SELECT points FROM "{self.roomLB}" WHERE user = "{user}"
             """)
             points = self.cursor.fetchall()[0][0] + newPoints
             self.cursor.execute(f"""UPDATE "{self.roomLB}" SET points = {points} WHERE user = "{user}"
             """)
         else:
-            self.cursor.execute(f"""INSERT INTO "{self.roomLB}" (user, points) VALUES (?,?)""", (self.sender, newPoints))
+            self.cursor.execute(f"""INSERT INTO "{self.roomLB}" (user, points) VALUES (?,?)""", (user, newPoints))
 
         if self.command == "addpoints":
             self.respond("Pontos adicionados!", self.sender)
