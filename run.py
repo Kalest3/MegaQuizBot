@@ -1,8 +1,8 @@
 import asyncio
 import websockets
-from utils.login import user
 
-uri = 'ws://localhost:8000/showdown/websocket'
+from config import uri
+from utils.login import user
 
 async def run():
     """Connect the script to Pokémon Showdown
