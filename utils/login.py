@@ -23,8 +23,8 @@ class user():
         self.websocket = websocket
         self.questions = {}
         self.questionsRoom = {}
-        self.commands = commands().commands
-        self.aliases = commands().aliases
+        self.commands = allCommands
+        self.aliases = allAliases
 
     async def login(self):
         while True:
