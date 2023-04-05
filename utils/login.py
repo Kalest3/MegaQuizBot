@@ -5,15 +5,16 @@ import sqlite3
 
 from config import *
 from utils.commands import *
-from showdown.utils import name_to_id
+from utils.redirecting import *
+
 
 logging.basicConfig(
         format="%(message)s",
         level=logging.DEBUG,
         )
 
-file = sqlite3.connect("database.db", check_same_thread=False)
-cursor = file.cursor()
+db = sqlite3.connect("database.db", check_same_thread=False)
+cursor = db.cursor()
 
 
 class user():
@@ -43,73 +44,19 @@ class user():
 
     async def on_login(self):
         msgSplited = self.msg.split("|")
-        if len(msgSplited) >= 4:
-            if msgSplited[1] == "pm":
-                senderID = name_to_id(msgSplited[2])
-                content = msgSplited[4]
-                msgType = 'pm'
-            elif msgSplited[1] == "c:":
-                senderID = name_to_id(msgSplited[3])
-                content = msgSplited[4]
-                msgType = 'room'
-            else:
-                return
 
-            if content[0] == prefix:
-                command = content.split(" ")[0].strip()[1:]
-                commandParams = content.replace(f"{prefix}{command}", "").strip().split(",")
-                if command in self.aliases:
-                    command = self.aliases[command]
-                if command in self.commands:
-                    if self.commands[command]['type'] == 'pm' and msgType == 'room':
-                        return await self.websocket.send(f"|/pm {senderID}, Este comando deve ser executado somente por PM.")
-
-                    if self.commands[command]['perm'] == 'host':
-                        if senderID not in self.questions:
-                            question: commands = commands(self.websocket, file, cursor, senderID)
-                            self.questions[senderID] = question
-
-                        self.questions[senderID].splitAll(command, commandParams, senderID)
-                        if self.questions[senderID].room and self.questions[senderID].room not in self.questions:
-                            self.questionsRoom[self.questions[senderID].room] = self.questions[senderID]
-
-                    elif self.commands[command]['perm'] == 'user':
-                        room = name_to_id(commandParams[-1])
-                        if room in self.questionsRoom:
-                            self.questionsRoom[room].splitAll(command, commandParams, senderID)
-
-                    elif self.commands[command]['perm'] == 'adm':
-                        room = name_to_id(commandParams[-1])
-
-                        if room not in rooms:
-                            return await self.websocket.send(f"|/pm {senderID}, O bot não está nessa room.")
-                        
-                        await self.websocket.send(f"|/query roominfo {room}")
-                        response = str(json.loads(str(await self.websocket.recv()).split("|")[3])['auth'])
-
-                        substringSender = f"'{senderID}'"
-
-                        if substringSender in response:
-                            commandIns = commands(self.websocket, file, cursor, msgType=msgType)
-                            commandIns.splitAll(command, commandParams, senderID)
-                        else:
-                            return await self.websocket.send(f"|/pm {senderID}, Você não tem permissão para usar este comando.")
-                    
-                    elif self.commands[command]['perm'] == 'general':
-                        room = name_to_id(commandParams[-1])
-                        if room not in rooms:
-                            return await self.websocket.send(f"|/pm {senderID}, O bot não está nessa room.")
-                        
-                        commandIns = commands(self.websocket, file, cursor, msgType=msgType)
-                        commandIns.splitAll(command, commandParams, senderID)
-                            
+        self.questions, self.questionsRoom = \
+            await redirectingFunction(websocket=self.websocket, db=db, cursor=cursor,
+        msgSplited=msgSplited, aliases=self.aliases, commands=self.commands,
+        questions=self.questions, questionsRoom=self.questionsRoom) \
+            .verify_command_type()
 
         for owner in self.questions.copy():
             question = self.questions[owner]
             if question.questionFinished:
-                self.questions.pop(owner)
-        
-        for room in self.questionsRoom.copy():
-            question = self.questionsRoom[room]
+                del self.questions[owner]
+
+        for user in self.questionsRoom.copy():
+            question = self.questionsRoom[user]
             if question.questionFinished:
-                self.questionsRoom.pop(room)
+                del self.questionsRoom[user]

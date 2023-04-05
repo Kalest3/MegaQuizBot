@@ -4,11 +4,17 @@ from showdown.utils import name_to_id
 from config import prefix, rooms
 
 class otherCommands():
-    def __init__(self, websocket=None, db=None, cursor=None, owner='', msgType=''):
+    def __init__(self, 
+                msgSplited=None,
+                websocket=None, 
+                db=None, 
+                cursor=None,
+                msgType=''):
+
+        self.msgSplited = msgSplited
         self.websocket = websocket
         self.db = db
         self.cursor = cursor
-        self.owner = owner
         self.msgType = msgType
         self.commandParams = []
         self.aliases = {
@@ -23,9 +29,9 @@ class otherCommands():
         self.sender = ''
 
         self.lb, self.addpoint, self.rempoint, self.clearpoint, self.deftimer = \
-            lambda : asyncio.create_task(self.leaderboard()), lambda : asyncio.create_task(self.addpoints()), \
-            lambda: asyncio.create_task(self.rempoints()), lambda : asyncio.create_task(self.clearpoints()), \
-            lambda : asyncio.create_task(self.defTimer())
+            lambda : self.call_command(self.leaderboard()), lambda : self.call_command(self.addpoints()), \
+            lambda: self.call_command(self.rempoints()), lambda : self.call_command(self.clearpoints()), \
+            lambda : self.call_command(self.defTimer())
 
 
         self.commands = {
@@ -33,10 +39,43 @@ class otherCommands():
             'addpoints': {'func': self.addpoint, 'perm': 'adm', 'type': 'both'}, 'rpoints': {'func': self.rempoint, 'perm': 'adm', 'type': 'both'}, 
             'clearpoints': {'func': self.clearpoint, 'perm': 'adm', 'type': 'both'},
         }
+    
+    def call_command(self, command):
+        try:
+            loop = asyncio.get_event_loop().is_running()
+        except RuntimeError:
+            return asyncio.run(command)
+        return asyncio.gather(command)
+
+    def splitAll(self, command, commandParams, sender):
+        self.sender = sender
+        self.command = command
+        self.commandParams = commandParams
+        self.checkRoom()
+        self.commands[self.command]['func']()
+
+    def respondRoom(self, message):
+        try:
+            loop = asyncio.get_event_loop().is_running()
+        except RuntimeError:
+            return asyncio.run(self.websocket.send(f"{self.room}|{message}"))
+        return asyncio.gather(self.websocket.send(f"{self.room}|{message}"))
+
+    def respondPM(self, user, message):
+        try:
+            loop = asyncio.get_event_loop().is_running()
+        except RuntimeError:
+            return asyncio.run(self.websocket.send(f"|/pm {user}, {message}"))
+        return asyncio.gather(self.websocket.send(f"|/pm {user}, {message}"))
+    
+    def respond(self, msg, user=None):
+        if self.msgType == 'pm':
+            self.respondPM(user, msg)
+        elif self.msgType == 'room':
+            self.respondRoom(msg)
 
     async def defTimer(self):
         time = self.commandParams[0]
-        self.room = name_to_id(self.commandParams[-1])
         if time.isdigit():
             self.timer = float(time)
             self.cursor.execute(f"""
@@ -59,12 +98,10 @@ class otherCommands():
     
     async def addpoints(self, newPoints=1):
         if self.command == "addpoints":
-            if len(self.commandParams) != 3:
+            if len(self.commandParams) < 2:
                 return self.respond(f"Uso do comando: {prefix}.addpoints [usuario], [pontos], [sala]", self.sender)
             user = name_to_id(self.commandParams[0])
             newPoints = self.commandParams[1]
-            self.room = self.commandParams[-1].strip()
-            self.roomLB = f"{self.room}lb"
             try:
                 newPoints = float(newPoints)
             except:
@@ -93,14 +130,11 @@ class otherCommands():
 
         self.db.commit()
 
-
     async def rempoints(self, newPoints=1):
-        if len(self.commandParams) != 3:
+        if len(self.commandParams) < 2:
             return self.respond(f"Uso do comando: {prefix}.rpoints [usuario], [pontos], [sala]", self.sender)
         user = name_to_id(self.commandParams[0])
         newPoints = self.commandParams[1]
-        self.room = self.commandParams[-1].strip()
-        self.roomLB = f"{self.room}lb"
         try:
             newPoints = float(newPoints)
         except:
@@ -111,7 +145,6 @@ class otherCommands():
         """)
 
         user = self.cursor.fetchall()
-
 
         if user:
             user = user[0][0]
@@ -132,14 +165,8 @@ class otherCommands():
 
         self.db.commit()
 
-
-
     async def clearpoints(self):
-        room = name_to_id(self.commandParams[0])
-        if room not in rooms:
-            self.respondPM(self.sender, "Sala não presente dentre as que o bot está.")
-        roomLB = f"{room}lb"
-        self.cursor.execute(f"""DELETE FROM {roomLB}""")
+        self.cursor.execute(f"""DELETE FROM {self.roomLB}""")
         self.db.commit()
         self.respondPM(self.sender, "Pontos da sala limpos!")
     
@@ -155,3 +182,18 @@ class otherCommands():
             points = data[1]
             lb += f"{user}: {points}\n"
         self.respond(f"!code Leaderboard:\n{lb}", self.sender)
+    
+    def checkRoom(self):
+        if self.msgType == 'room':
+            self.room = self.msgSplited[0]
+            if not self.room:
+                self.room = 'lobby'
+            else:
+                self.room = self.room[1:]
+            self.roomLB = f"{self.room}lb"
+        else:
+            self.room = name_to_id(self.commandParams[-1])
+            if self.room not in rooms:
+                self.respondPM(self.sender, "Sala não presente dentre as que o bot está.")
+                return
+            self.roomLB = f"{self.room}lb"

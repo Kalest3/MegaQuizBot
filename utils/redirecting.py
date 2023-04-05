@@ -1,0 +1,115 @@
+import json
+
+from config  import *
+from utils.commands import *
+from playing.game import *
+from playing.other import *
+
+from showdown.utils import name_to_id
+
+class redirectingFunction():
+    def __init__(self, **kwargs) -> None:
+        self.websocket = kwargs['websocket']
+        self.db = kwargs['db']
+        self.cursor = kwargs['cursor']
+
+        self.msgSplited = kwargs['msgSplited']
+        self.aliases = kwargs['aliases']
+        self.commands = kwargs['commands']
+
+        self.questions = kwargs['questions']
+        self.questionsRoom = kwargs['questionsRoom']
+        
+
+    async def verify_command_type(self):
+        if len(self.msgSplited) >= 4:
+            if self.msgSplited[1] == "pm":
+                senderID = name_to_id(self.msgSplited[2])
+                content = self.msgSplited[4]
+                msgType = 'pm'
+            elif self.msgSplited[1] == "c:":
+                senderID = name_to_id(self.msgSplited[3])
+                content = self.msgSplited[4]
+                msgType = 'room'
+            else:
+                return self.return_question()
+        else:
+            return self.return_question()
+
+        if msgType == 'room':
+            room = self.msgSplited[0]
+            if not room:
+                room = 'lobby'
+            else:
+                room = room[1:]
+
+        if content[0] == prefix:
+            command = content.split(" ")[0].strip()[1:]
+            commandParams = content.replace(f"{prefix}{command}", "").strip().split(",")
+            if command in self.aliases:
+                command = self.aliases[command]
+            if command in self.commands:
+                if self.commands[command]['type'] == 'pm' and msgType == 'room':
+                    await self.websocket.send(f"|/pm {senderID}, Este comando deve ser executado somente por PM.")
+                    return self.return_question()
+
+                if self.commands[command]['perm'] == 'host':
+                    if senderID not in trusted:
+                        await self.websocket.send(f"|/pm {senderID}, Você não tem permissão para executar este comando.")
+                        return self.return_question()
+                    if senderID not in self.questions:
+                        question: gameCommands = gameCommands(self.msgSplited, self.websocket, self.db, self.cursor, senderID, msgType)
+                        self.questions[senderID] = question
+
+                    self.questions[senderID].splitAll(command, commandParams, senderID)
+
+                elif self.commands[command]['perm'] == 'user':
+                    room = name_to_id(commandParams[-1])
+                    if room in rooms:
+                        self.questionsRoom[room].splitAll(command, commandParams, senderID)
+
+                elif self.commands[command]['perm'] == 'adm':
+                    if msgType == 'pm':
+                        room = name_to_id(commandParams[-1])
+                    
+                    if room not in rooms:
+                        await self.websocket.send(f"|/pm {senderID}, O bot não está nessa room.")
+                    else:                    
+                        if await self.verify_perm(room, senderID):
+                            commandIns = otherCommands(self.msgSplited, self.websocket, self.db, self.cursor, msgType=msgType)
+                            commandIns.splitAll(command, commandParams, senderID)
+                        else:
+                            await self.websocket.send(f"|/pm {senderID}, Você não tem permissão para usar este comando.")
+
+                elif self.commands[command]['perm'] == 'general':
+                    if msgType == 'pm':
+                        room = name_to_id(commandParams[-1])
+                        if room in rooms:
+                            commandIns = otherCommands(self.msgSplited, self.websocket, self.db, self.cursor, msgType)
+                            commandIns.splitAll(command, commandParams, senderID)
+                        else:
+                            await self.websocket.send(f"|/pm {senderID}, O bot não está nessa room.")
+                    else:
+                        if await self.verify_perm(room, senderID):
+                            commandIns = otherCommands(self.msgSplited, self.websocket, self.db, self.cursor, msgType=msgType)
+                            commandIns.splitAll(command, commandParams, senderID)
+                        else:
+                            await self.websocket.send(f"|/pm {senderID}, Você não tem permissão para usar este comando.")
+
+        return self.return_question()
+
+    async def verify_perm(self, room, senderID):
+        if room in rooms:
+            await self.websocket.send(f"|/query roominfo {room}")
+            response = str(json.loads(str(await self.websocket.recv()).split("|")[3])['auth'])
+
+            substringSender = f"'{senderID}'"
+
+            if substringSender not in response:
+                return
+            else:
+                return True
+        return
+
+    def return_question(self):
+        return self.questions, self.questionsRoom

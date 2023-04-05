@@ -3,10 +3,20 @@ import threading
 import random
 
 from showdown.utils import name_to_id
+
 from config import username, prefix, rooms, trusted
+from playing.other import *
 
 class gameCommands():
-    def __init__(self, websocket=None, db=None, cursor=None, owner='', msgType=''):
+    def __init__(self,
+                msgSplited = None,
+                websocket=None, 
+                db=None, 
+                cursor=None,
+                owner='', 
+                msgType=''):
+        
+        self.msgSplited = msgSplited
         self.websocket = websocket
         self.db = db
         self.cursor = cursor
@@ -35,14 +45,13 @@ class gameCommands():
         self.html = ''
         self.question = ''
 
-        self.mq, self.cancelQ, self.add, self.defans, self.showQuestion, self.sendHTML, self.userAnswer, self.lb, \
-        self.addpoint, self.rempoint, self.clearpoint, self.deftimer = \
-            lambda : asyncio.create_task(self.makequestion()), lambda : asyncio.create_task(self.cancel()), \
-            lambda : asyncio.create_task(self.addalternative()), lambda : asyncio.create_task(self.defanswer()), \
-            lambda : asyncio.create_task(self.questionShow()), lambda : asyncio.create_task(self.send()), lambda: asyncio.create_task(self.checkUserAnswer()), \
-            lambda : asyncio.create_task(self.leaderboard()), lambda : asyncio.create_task(self.addpoints()), lambda: asyncio.create_task(self.rempoints()), \
-            lambda : asyncio.create_task(self.clearpoints()), lambda : asyncio.create_task(self.defTimer())
+        self.otherCommands = otherCommands(self.msgSplited, websocket, db, cursor, 'room')
 
+        self.mq, self.cancelQ, self.add, self.defans, self.showQuestion, self.sendHTML, self.userAnswer = \
+            lambda : self.call_command(self.makequestion()), lambda : self.call_command(self.cancel()), \
+            lambda : self.call_command(self.addalternative()), lambda : self.call_command(self.defanswer()), \
+            lambda : self.call_command(self.questionShow()), lambda : self.call_command(self.send()), \
+            lambda: self.call_command(self.checkUserAnswer()), \
 
         self.commands = {
             'mq': {'func': self.mq, 'perm': 'host', 'type': 'pm'}, 'cancel': {'func': self.cancelQ, 'perm': 'host', 'type': 'pm'},
@@ -50,6 +59,13 @@ class gameCommands():
             'showquestion': {'func': self.showQuestion, 'perm': 'host', 'type': 'pm'},
             'send': {'func': self.sendHTML, 'perm': 'host', 'type': 'both'}, 'respond': {'func': self.userAnswer, 'perm': 'user', 'type': 'pm'},
         }
+
+    def call_command(self, command):
+        try:
+            loop = asyncio.get_event_loop().is_running()
+        except RuntimeError:
+            return asyncio.run(command)
+        return asyncio.gather(command)
 
     def splitAll(self, command, commandParams, sender):
         self.sender = sender
@@ -174,16 +190,18 @@ class gameCommands():
         timer.start()
 
     async def checkUserAnswer(self):
+        points = 0
         if self.currentQuestion:
             if len(self.commandParams) >= 2:
                 self.usersAnswered.append(self.sender)
                 answer = name_to_id(self.commandParams[0])
                 if answer == name_to_id(self.answer):
-                    await self.addpoints(1)
+                    points += 1
+                    self.otherCommands.splitAll('addpoints', self.sender, None)
                     if self.sender not in self.usersPointers:
-                        self.usersPointers[self.sender] = 1
+                        self.usersPointers[self.sender] = points
                     else:
-                        self.usersPointers[self.sender] += 1
+                        self.usersPointers[self.sender] += points
 
     async def timeLimit(self):
         self.currentQuestion = False
@@ -199,10 +217,9 @@ class gameCommands():
         threads.append(threading.Timer(5, self.respondRoom, args=["E a resposta era..."]))
         threads.append(threading.Timer(10, self.respondRoom, args=[f"/wall {self.answer}!"]))
         threads.append(threading.Timer(20, self.respondRoom, args=[f"Pontuadores: {', '.join(self.usersPointers)}"]))
-        threads.append(threading.Timer(30, lambda: asyncio.run(self.leaderboard())))
+        threads.append(threading.Timer(30, self.otherCommands.splitAll, args=["lb", "", ""]))
         for thread in threads:
             thread.start()
-
 
     def finishQuestion(self):
         self.questionFinished = True

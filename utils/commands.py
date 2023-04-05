@@ -1,13 +1,10 @@
 from playing import game, other
 
-cmdGame = set(game.gameCommands().commands.keys())
-cmdOther = set(other.otherCommands().commands.keys())
+cmdGame = game.gameCommands().commands
+cmdOther = other.otherCommands().commands
 
-aliasesGame = set(game.gameCommands().aliases.keys())
-aliasesOther = set(game.gameCommands().aliases.keys())
+aliasesGame = game.gameCommands().aliases
+aliasesOther = other.otherCommands().aliases
 
-allCommands = set()
-allAliases = set()
-
-allCommands = allCommands.union(cmdGame, cmdOther)
-allAliases = allAliases.union(aliasesGame, aliasesOther)
+allCommands = cmdGame | cmdOther
+allAliases = aliasesGame | aliasesOther
