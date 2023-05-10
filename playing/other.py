@@ -16,6 +16,7 @@ class otherCommands():
         self.db = db
         self.cursor = cursor
         self.msgType = msgType
+        self.command = ''
         self.commandParams = []
         self.aliases = {
             "addp": "addpoints",
@@ -108,6 +109,9 @@ class otherCommands():
                 return self.respond(f"Uso do comando: {prefix}addpoints [usuario], [pontos], [sala]", self.sender)
         else:
             user = self.sender
+        
+        self.room = self.commandParams[-1]
+        self.roomLB = f"{self.room}lb"
 
         self.cursor.execute(f"""
         SELECT user FROM "{self.roomLB}" WHERE user = "{user}"

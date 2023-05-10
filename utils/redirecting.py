@@ -64,9 +64,9 @@ class redirectingFunction():
                     self.questions[senderID].splitAll(command, commandParams, senderID)
 
                 elif self.commands[command]['perm'] == 'user':
-                    room = name_to_id(commandParams[-1])
-                    if room in rooms:
-                        self.questionsRoom[room].splitAll(command, commandParams, senderID)
+                    hoster = name_to_id(commandParams[-1])
+                    if hoster in self.questions:
+                        self.questions[hoster].splitAll(command, commandParams, senderID)
 
                 elif self.commands[command]['perm'] == 'adm':
                     if msgType == 'pm':

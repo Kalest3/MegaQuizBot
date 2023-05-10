@@ -150,9 +150,9 @@ class gameCommands():
         alternative = self.commandParams[0]
         color = random.choice(self.fontColors)
         if self.alternativesNumber % 2 == 0:
-            self.html += f'<tr><td style="width: 50.00%"><center><button name="send" value="/w {username},{prefix}respond {alternative}, {self.room}" style=background-color:transparent;border:none;><font color="{color}" size="3"><b>{alternative}</b></font></button></center>'
+            self.html += f'<tr><td style="width: 50.00%"><center><button name="send" value="/w {username},{prefix}respond {alternative}, {self.owner}" style=background-color:transparent;border:none;><font color="{color}" size="3"><b>{alternative}</b></font></button></center>'
         else:
-            self.html += f'<td style="width: 50.00%"><center><button name="send" value="/w {username},{prefix}respond {alternative}, {self.room}" style=background-color:transparent;border:none;><font color="{color}" size="3"><b>{alternative}</b></font></button></center></tr>'
+            self.html += f'<td style="width: 50.00%"><center><button name="send" value="/w {username},{prefix}respond {alternative}, {self.owner}" style=background-color:transparent;border:none;><font color="{color}" size="3"><b>{alternative}</b></font></button></center></tr>'
         self.fontColors.remove(color)
         self.alternativesNumber += 1
         self.alternatives.append(alternative)
@@ -197,7 +197,10 @@ class gameCommands():
                 answer = name_to_id(self.commandParams[0])
                 if answer == name_to_id(self.answer):
                     points += 1
-                    self.otherCommands.splitAll('addpoints', self.sender, None)
+                    self.otherCommands.command = ''
+                    self.otherCommands.sender = self.sender
+                    self.otherCommands.commandParams = [self.sender,points,self.room]
+                    await self.otherCommands.addpoints()
                     if self.sender not in self.usersPointers:
                         self.usersPointers[self.sender] = points
                     else:
