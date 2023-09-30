@@ -17,6 +17,34 @@ db = sqlite3.connect("database.db", check_same_thread=False)
 cursor = db.cursor()
 
 
+cursor.execute("""CREATE TABLE IF NOT EXISTS room (
+    roomNAME TEXT PRIMARY KEY,
+    timer FLOAT)""")
+
+cursor.execute("""CREATE TABLE IF NOT EXISTS roomLB (
+    roomNAME TEXT,
+    user TEXT,
+    points FLOAT,
+
+    FOREIGN KEY(roomNAME)
+    REFERENCES room(roomNAME)
+    )""")
+
+roomsDatabase = []
+
+cursor.execute("SELECT roomNAME from room")
+
+for room in cursor.fetchall():
+    roomsDatabase.append(', '.join(room))
+
+for room in rooms:
+    if room not in roomsDatabase:
+        cursor.execute("""INSERT INTO room(roomNAME, timer)
+        values (?,?)""", [room,15])
+
+        db.commit()
+
+
 class user():
     def __init__(self, websocket):
         self.loginDone = False
@@ -36,9 +64,11 @@ class user():
                 assertion = json.loads(postlogin.text[1:])["assertion"]
                 await self.websocket.send(f'|/trn {username},0,{assertion}')
                 await self.websocket.send(f'|/avatar {avatar}')
+
                 for room in rooms:
                     await self.websocket.send(f'|/join {room}')
                 self.loginDone = True
+
             if self.loginDone:
                 await self.on_login()
 

@@ -2,9 +2,9 @@
     "uri": "ws://sim.smogon.com/showdown/websocket",
     "username":"",
     "password":"",
-    "avatar": "",
+    "owner":"",
     "rooms": [],
+    "avatar": "",
     "prefix": ".",
-    "trusted": [],
     "ranksAdm": ["+", "%", "*", "@", "#", "&"]
 }
