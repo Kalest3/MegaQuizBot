@@ -71,7 +71,7 @@ class gameCommands():
     async def makequestion(self):
         if len(self.commandParams) < 2:
             self.questionFinished = True
-            return respondPM(self.sender, "Comando: .mq [pergunta], [room]", self.websocket)
+            return respondPM(self.sender, "Comando: .mq [pergunta], [sala]", self.websocket)
 
         self.room = name_to_id(self.commandParams[-1])
 
@@ -108,14 +108,15 @@ class gameCommands():
         return respondPM(self.sender, "Questão cancelada.", self.websocket)
 
     async def addalternative(self):
-        print(self.html)
+        if len(self.commandParams) < 2:
+            return respondPM(self.sender, "Comando: .add [alternativa], [sala]", self.websocket)
         if not self.html:
             self.questionFinished = True
             return respondPM(self.sender, "Nenhuma questão foi definida.", self.websocket)
         if self.alternativesNumber == 4:
             return respondPM(self.sender, "Limite de alternativas atingido!", self.websocket)
 
-        alternative = ', '.join(self.commandParams)
+        alternative = self.commandParams[0]
         color = random.choice(self.fontColors)
         if self.alternativesNumber % 2 == 0:
             self.html += f'<tr><td style="width: 50.00%"><center><button name="send" value="/w {username},{prefix}respond {alternative}, {self.owner}" style=background-color:transparent;border:none;><font color="{color}" size="3"><b>{alternative}</b></font></button></center>'
@@ -128,6 +129,8 @@ class gameCommands():
         respondPM(self.sender, f"Alternativa feita! Se quiser colocar alguma alternativa como a correta, digite {prefix}danswer (alternativa).", self.websocket)
 
     async def defanswer(self):
+        if len(self.commandParams) < 2:
+            return respondPM(self.sender, "Comando: .danswer [alternativa], [sala]", self.websocket)
         alternative = self.commandParams[0]
         if alternative in self.alternatives:
             self.answer = alternative
@@ -140,6 +143,8 @@ class gameCommands():
             return respondPM(self.sender, "A alternativa indicada não foi definida.", self.websocket)
 
     async def questionShow(self):
+        if len(self.commandParams) < 1:
+            return respondPM(self.sender, "Comando: .question [sala]", self.websocket)
         if not self.html:
             self.questionFinished = True
             return respondPM(self.sender, "Nenhuma questão foi definida.", self.websocket)
@@ -149,6 +154,8 @@ class gameCommands():
         respondPM(self.sender, f"!code {code}", self.websocket)
 
     async def send(self):
+        if len(self.commandParams) < 1 and self.msgType == 'pm':
+            return respondPM(self.sender, "Comando: .send [sala]", self.websocket)
         if not self.html:
             return respond(self.msgType, "Nenhuma questão foi definida.", self.websocket, self.sender, self.room)
         self.html += "</tbody></table></center></div>"
@@ -181,7 +188,6 @@ class gameCommands():
         self.timeToFinish.cancel()
         respondRoom(f"/wall ACABOU O TEMPO!", self.websocket, self.room)
         await self.postQuestion()
-        self.questionFinished = True
 
     async def postQuestion(self):
         self.msgType = 'room'

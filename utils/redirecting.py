@@ -63,11 +63,19 @@ class redirectingFunction():
                     commandIns.splitAll(command, commandParams, senderID, msgType)
 
                 if self.commands[command]['perm'] == 'host':
-                    if await self.verify_perm(room, senderID) and senderID not in self.questions:
-                        question: gameCommands = gameCommands(self.msgSplited, self.websocket, self.db, self.cursor, senderID)
-                        self.questions[senderID] = question
-                    if senderID not in self.questions:
+                    permission = await self.verify_perm(room, senderID)
+                    print(permission)
+                    if permission == "VALID":
+                        if senderID not in self.questions:
+                            question: gameCommands = gameCommands(self.msgSplited, self.websocket, self.db, self.cursor, senderID)
+                            self.questions[senderID] = question
+
+                    elif permission == "INVALID":
                         await self.websocket.send(f"|/pm {senderID}, Você não tem permissão para executar este comando.")
+                        return self.return_question()
+
+                    elif permission == "NOTROOM":
+                        await self.websocket.send(f"|/pm {senderID}, O bot não está nessa room.")
                         return self.return_question()
 
                     self.questions[senderID].splitAll(command, commandParams, senderID, msgType)
@@ -77,15 +85,19 @@ class redirectingFunction():
                     if hoster in self.questions:
                         self.questions[hoster].splitAll(command, commandParams, senderID, msgType)
 
-                elif self.commands[command]['perm'] == 'adm':
-                    if room not in rooms:
+                elif self.commands[command]['perm'] == 'adm':    
+                    permission = await self.verify_perm(room, senderID)           
+                    if permission == "VALID":
+                        commandIns = otherCommands(self.msgSplited, self.websocket, self.db, self.cursor)
+                        commandIns.splitAll(command, commandParams, senderID, msgType)
+
+                    elif permission == "INVALID":
+                        await self.websocket.send(f"|/pm {senderID}, Você não tem permissão para executar este comando.")
+                        return self.return_question()
+
+                    elif permission == "NOTROOM":
                         await self.websocket.send(f"|/pm {senderID}, O bot não está nessa room.")
-                    else:                    
-                        if await self.verify_perm(room, senderID):
-                            commandIns = otherCommands(self.msgSplited, self.websocket, self.db, self.cursor)
-                            commandIns.splitAll(command, commandParams, senderID, msgType)
-                        else:
-                            await self.websocket.send(f"|/pm {senderID}, Você não tem permissão para usar este comando.")
+                        return self.return_question()
 
                 elif self.commands[command]['perm'] == 'general':
                     if msgType == 'pm':
@@ -96,11 +108,20 @@ class redirectingFunction():
                         else:
                             await self.websocket.send(f"|/pm {senderID}, O bot não está nessa room.")
                     else:
-                        if await self.verify_perm(room, senderID):
+                        permission = await self.verify_perm(room, senderID)           
+                        
+                        if permission == "VALID":
                             commandIns = otherCommands(self.msgSplited, self.websocket, self.db, self.cursor)
                             commandIns.splitAll(command, commandParams, senderID, msgType)
-                        else:
-                            await self.websocket.send(f"|/pm {senderID}, Você não tem permissão para usar este comando.")
+
+                        elif permission == "INVALID":
+                            await self.websocket.send(f"|/pm {senderID}, Você não tem permissão para executar este comando.")
+                            return self.return_question()
+
+                        elif permission == "NOTROOM":
+                            await self.websocket.send(f"|/pm {senderID}, O bot não está nessa room.")
+                            return self.return_question()
+
 
         return self.return_question()
 
@@ -112,10 +133,11 @@ class redirectingFunction():
             substringSender = [f'{senderID}']
 
             if substringSender not in response:
-                return
+                return "INVALID"
             else:
-                return True
-        return
+                return "VALID"
+        else:
+            return "NOTROOM"
 
     def return_question(self):
         return self.questions, self.questionsRoom

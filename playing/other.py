@@ -1,6 +1,6 @@
 from showdown.utils import name_to_id
 
-from config import prefix, rooms, owner
+from config import prefix, rooms
 from utils.responding import *
 
 class otherCommands():
@@ -22,6 +22,8 @@ class otherCommands():
             "rpoint": "rpoints",
             "removepoints": "rpoints",
             "clear": "clearpoints",
+            "settimer": "deftimer",
+            "timer": "deftimer",
             "dtimer": "deftimer",
         }
 
@@ -145,7 +147,7 @@ class otherCommands():
         self.cursor.execute(f"""DELETE FROM roomLB WHERE roomNAME = "{self.room}"
         """)
         self.db.commit()
-        respondPM(self.sender, "Pontos da sala limpos!", self.websocket)
+        respond(self.msgType, "Pontos da sala limpos!", self.websocket, self.sender, self.room)
     
     async def leaderboard(self):
         self.cursor.execute(f"""SELECT * FROM roomLB WHERE roomNAME = "{self.room}"
