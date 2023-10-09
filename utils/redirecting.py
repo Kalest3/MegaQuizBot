@@ -36,7 +36,7 @@ class redirectingFunction():
             return self.return_question()
 
         if msgType == 'room':
-            room = self.msgSplited[0]
+            room = self.msgSplited[0].strip()
             if not room:
                 room = 'lobby'
             else:
@@ -64,7 +64,6 @@ class redirectingFunction():
 
                 if self.commands[command]['perm'] == 'host':
                     permission = await self.verify_perm(room, senderID)
-                    print(permission)
                     if permission == "VALID":
                         if senderID not in self.questions:
                             question: gameCommands = gameCommands(self.msgSplited, self.websocket, self.db, self.cursor, senderID)
@@ -128,14 +127,20 @@ class redirectingFunction():
     async def verify_perm(self, room, senderID):
         if room in rooms:
             await self.websocket.send(f"|/query roominfo {room}")
-            response = list((json.loads(str(await self.websocket.recv()).split("|")[3])['auth'].values()))
+            
+            response = str(await self.websocket.recv()).split("|")
+            if len(response) > 2:
+                while response[1] != "queryresponse" and response[2] != "roominfo":
+                    response = str(await self.websocket.recv()).split("|")
 
-            substringSender = [f'{senderID}']
+                auths = list((json.loads(response[3])['auth'].values()))
 
-            if substringSender not in response:
-                return "INVALID"
-            else:
-                return "VALID"
+            substringSender = f'{senderID}'
+
+            for group in auths:
+                if substringSender in group:
+                    return "VALID"
+            return "INVALID"
         else:
             return "NOTROOM"
 

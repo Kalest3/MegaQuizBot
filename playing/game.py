@@ -74,10 +74,6 @@ class gameCommands():
             return respondPM(self.sender, "Comando: .mq [pergunta], [sala]", self.websocket)
 
         self.room = name_to_id(self.commandParams[-1])
-
-        if self.room not in rooms:
-            self.questionFinished = True
-            return respondPM(self.sender, "Room não presente dentre as que o bot está.", self.websocket)
         
         if self.html:
             return respondPM(self.sender, f"Cancele a questão com o comando {prefix}cancel para fazer outra.", self.websocket)

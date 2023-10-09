@@ -163,7 +163,7 @@ class otherCommands():
     
     def checkRoom(self):
         if self.msgType == 'room':
-            self.room = self.msgSplited[0]
+            self.room = self.msgSplited[0].strip()
             if not self.room:
                 self.room = 'lobby'
             else:
