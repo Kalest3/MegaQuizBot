@@ -42,6 +42,7 @@ class gameCommands():
         self.room = ''
         self.roomLB = ''
         self.sender = ''
+        self.senderID = ''
         self.answer = ''
         self.html = ''
         self.question = ''
@@ -63,6 +64,7 @@ class gameCommands():
 
     def splitAll(self, command, commandParams, sender, msgType):
         self.sender = sender
+        self.senderID = name_to_id(self.sender)
         self.command = command
         self.commandParams = commandParams
         self.msgType = msgType
@@ -71,12 +73,12 @@ class gameCommands():
     async def makequestion(self):
         if len(self.commandParams) < 2:
             self.questionFinished = True
-            return respondPM(self.sender, "Comando: .mq [pergunta], [sala]", self.websocket)
+            return respondPM(self.senderID, "Comando: .mq [pergunta], [sala]", self.websocket)
 
         self.room = name_to_id(self.commandParams[-1])
         
         if self.html:
-            return respondPM(self.sender, f"Cancele a questão com o comando {prefix}cancel para fazer outra.", self.websocket)
+            return respondPM(self.senderID, f"Cancele a questão com o comando {prefix}cancel para fazer outra.", self.websocket)
 
         self.roomLB = f"{self.room}lb"
         self.question = self.commandParams[0]
@@ -91,7 +93,7 @@ class gameCommands():
         if timer:
             self.timer = timer[0][0]
 
-        respondPM(self.sender, f"Questão feita! Agora, para adicionar alternativas, digite {prefix}add (alternativa).", self.websocket)
+        respondPM(self.senderID, f"Questão feita! Agora, para adicionar alternativas, digite {prefix}add (alternativa).", self.websocket)
 
         self.timeToFinish = threading.Timer(10 * 60, self.finishQuestion)
         self.timeToFinish.start()
@@ -99,18 +101,18 @@ class gameCommands():
     async def cancel(self):
         if not self.html:
             self.questionFinished = True
-            return respondPM(self.sender, "Nenhuma questão foi definida.", self.websocket)
+            return respondPM(self.senderID, "Nenhuma questão foi definida.", self.websocket)
         self.questionFinished = True
-        return respondPM(self.sender, "Questão cancelada.", self.websocket)
+        return respondPM(self.senderID, "Questão cancelada.", self.websocket)
 
     async def addalternative(self):
         if len(self.commandParams) < 2:
-            return respondPM(self.sender, "Comando: .add [alternativa], [sala]", self.websocket)
+            return respondPM(self.senderID, "Comando: .add [alternativa], [sala]", self.websocket)
         if not self.html:
             self.questionFinished = True
-            return respondPM(self.sender, "Nenhuma questão foi definida.", self.websocket)
+            return respondPM(self.senderID, "Nenhuma questão foi definida.", self.websocket)
         if self.alternativesNumber == 4:
-            return respondPM(self.sender, "Limite de alternativas atingido!", self.websocket)
+            return respondPM(self.senderID, "Limite de alternativas atingido!", self.websocket)
 
         alternative = self.commandParams[0]
         color = random.choice(self.fontColors)
@@ -122,38 +124,38 @@ class gameCommands():
         self.alternativesNumber += 1
         self.alternatives.append(alternative)
 
-        respondPM(self.sender, f"Alternativa feita! Se quiser colocar alguma alternativa como a correta, digite {prefix}danswer (alternativa).", self.websocket)
+        respondPM(self.senderID, f"Alternativa feita! Se quiser colocar alguma alternativa como a correta, digite {prefix}danswer (alternativa).", self.websocket)
 
     async def defanswer(self):
         if len(self.commandParams) < 2:
-            return respondPM(self.sender, "Comando: .danswer [alternativa], [sala]", self.websocket)
+            return respondPM(self.senderID, "Comando: .danswer [alternativa], [sala]", self.websocket)
         alternative = self.commandParams[0]
         if alternative in self.alternatives:
             self.answer = alternative
-            respondPM(self.sender, f"A alternativa {alternative} foi configurada como a correta.", self.websocket)
+            respondPM(self.senderID, f"A alternativa {alternative} foi configurada como a correta.", self.websocket)
 
         elif not self.html:
-            return respondPM(self.sender, "Nenhuma questão foi definida.", self.websocket)
+            return respondPM(self.senderID, "Nenhuma questão foi definida.", self.websocket)
 
         elif alternative not in self.alternatives:
-            return respondPM(self.sender, "A alternativa indicada não foi definida.", self.websocket)
+            return respondPM(self.senderID, "A alternativa indicada não foi definida.", self.websocket)
 
     async def questionShow(self):
         if len(self.commandParams) < 1:
-            return respondPM(self.sender, "Comando: .question [sala]", self.websocket)
+            return respondPM(self.senderID, "Comando: .question [sala]", self.websocket)
         if not self.html:
             self.questionFinished = True
-            return respondPM(self.sender, "Nenhuma questão foi definida.", self.websocket)
+            return respondPM(self.senderID, "Nenhuma questão foi definida.", self.websocket)
 
         code = f"A questão está assim:\nQuestão: {self.question}\nAlternativas: {', '.join(self.alternatives)}\nAlternativa correta: {self.answer}"
 
-        respondPM(self.sender, f"!code {code}", self.websocket)
+        respondPM(self.senderID, f"!code {code}", self.websocket)
 
     async def send(self):
         if len(self.commandParams) < 1 and self.msgType == 'pm':
-            return respondPM(self.sender, "Comando: .send [sala]", self.websocket)
+            return respondPM(self.senderID, "Comando: .send [sala]", self.websocket)
         if not self.html:
-            return respond(self.msgType, "Nenhuma questão foi definida.", self.websocket, self.sender, self.room)
+            return respond(self.msgType, "Nenhuma questão foi definida.", self.websocket, self.senderID, self.room)
         self.html += "</tbody></table></center></div>"
         respondRoom(f"/addhtmlbox {self.html}", self.websocket, self.room)
         self.currentQuestion = True
@@ -164,13 +166,14 @@ class gameCommands():
         points = 0
         if self.currentQuestion:
             if len(self.commandParams) >= 2:
-                self.usersAnswered.append(self.sender)
+                self.usersAnswered.append(self.senderID)
                 answer = name_to_id(self.commandParams[0])
                 if answer == name_to_id(self.answer):
                     points += 1
                     self.otherCommands.room = self.room
                     self.otherCommands.command = ''
                     self.otherCommands.sender = self.sender
+                    self.otherCommands.senderID = self.senderID
                     self.otherCommands.commandParams = [self.sender,points,self.room]
                     await self.otherCommands.addpoints()
                     if self.sender not in self.usersPointers:

@@ -24,6 +24,7 @@ cursor.execute("""CREATE TABLE IF NOT EXISTS room (
 cursor.execute("""CREATE TABLE IF NOT EXISTS roomLB (
     roomNAME TEXT,
     user TEXT,
+    userID TEXT,
     points FLOAT,
 
     FOREIGN KEY(roomNAME)
@@ -58,6 +59,7 @@ class user():
     async def login(self):
         while True:
             self.msg = str(await self.websocket.recv())
+
             if self.msg[0:10] == '|challstr|':
                 challstr = self.msg[10:]
                 postlogin = requests.post('https://play.pokemonshowdown.com/~~showdown/action.php', data={'act':'login','name':username,'pass':password,'challstr':challstr})
